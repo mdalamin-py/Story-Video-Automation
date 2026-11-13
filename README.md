@@ -59,3 +59,24 @@ Open `http://127.0.0.1:8765`, enter the admin token, and queue a demo or a real 
 - [Muse Video API](https://muse-video.com/docs/api)
 - [YouTube Data API](https://developers.google.com/youtube/data/reference/rest/v3/videos/insert)
 - [Facebook Reels API](https://www.postman.com/meta/facebook/request/juhnm3q/4-publish-reel)
+
+## Configure live APIs later
+
+The demo runs without API keys. When you have your accounts, copy the
+environment template and edit the local file:
+
+```powershell
+Copy-Item .env.example .env
+.\run.cmd check --platform both
+```
+
+Set the story credentials (or story router), then choose a video provider
+or illustrated mode. Voice credentials are needed only if you enable TTS.
+Supply the publishing credentials for the selected platforms. To prepare
+one platform first, pass youtube or facebook to the check command.
+
+The check validates local settings and FFmpeg without sending requests,
+spending credits, or uploading videos. A successful check does not verify
+token validity or platform permissions. For a live trial, render and review
+the preview, then use the upload command without --public to submit privately
+to YouTube or as a Facebook draft.

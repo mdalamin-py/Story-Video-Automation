@@ -206,11 +206,42 @@ def process(folder, args):
         print(f"{platform}: {receipt.get('url', receipt['id'])}")
 
 
+def check_setup(brief_path, platform):
+    platforms = PUBLISH_CREDENTIALS if platform == "both" else (platform,)
+    settings = [key for target in platforms for key in PUBLISH_CREDENTIALS[target]]
+    story_config = os.environ.get("STORY_PROVIDER_CONFIG", "").strip()
+    if story_config:
+        from provider_router import Routing
+
+        try:
+            routing = Routing.model_validate_json((ROOT / story_config).read_text(encoding="utf-8-sig"))
+        except ValueError:
+            raise ValueError("Invalid story provider configuration. Review STORY_PROVIDER_CONFIG.") from None
+        candidates = routing.candidates()
+        if not routing.fallback:
+            candidates = candidates[:1]
+        if not any(os.environ.get(item.key_env, "").strip() for item in candidates):
+            raise ValueError("Set a credential for an eligible story provider.")
+    else:
+        settings.extend(["OPENAI_API_KEY", "OPENAI_MODEL"])
+        if os.environ.get("STORY_BUDGET_USD", "").strip():
+            raise ValueError("Configure STORY_PROVIDER_CONFIG to enforce a story budget.")
+    missing = [name for name in settings if not os.environ.get(name, "").strip()]
+    if missing:
+        raise ValueError("Missing settings in .env: " + ", ".join(missing))
+    brief = load(brief_path)
+    validate(brief)
+    video_brief = {**brief, "audio": False} if speech_settings() else brief
+    if not image_settings():
+        video_route(os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", ""), video_brief)
+    subprocess.run([ffmpeg(), "-version"], check=True, stdout=subprocess.DEVNULL)
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Story Video Automation")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("draft", "auto"):
+    for name in ("draft", "auto", "check"):
         step = commands.add_parser(name)
         step.add_argument("--brief", type=Path, default=ROOT / "input" / "brief.json")
     commands.choices["draft"].add_argument("--demo", action="store_true")
@@ -219,31 +250,22 @@ def main():
         step.add_argument("run")
     commands.choices["analytics"].add_argument("--platform", choices=("youtube", "facebook"), required=True)
     commands.choices["render"].add_argument("--video", type=Path)
-    for name in ("upload", "auto"):
+    for name in ("upload", "auto", "check"):
         step = commands.choices[name]
         step.add_argument("--platform", choices=("both", "youtube", "facebook"), default="both")
-        step.add_argument("--public", action="store_true")
+        if name != "check":
+            step.add_argument("--public", action="store_true")
     args = parser.parse_args()
     load_env()
     if args.command == "draft":
         draft(args)
         return
+    if args.command == "check":
+        check_setup(args.brief, args.platform)
+        print("Local configuration passed. No API calls made.")
+        return
     if args.command == "auto":
-        platforms = PUBLISH_CREDENTIALS if args.platform == "both" else (args.platform,)
-        settings = []
-        if not os.environ.get("STORY_PROVIDER_CONFIG", "").strip():
-            settings.extend(["OPENAI_API_KEY", "OPENAI_MODEL"])
-        for platform in platforms:
-            settings.extend(PUBLISH_CREDENTIALS[platform])
-        missing = [name for name in settings if not os.environ.get(name, "").strip()]
-        if missing:
-            raise ValueError("Missing settings in .env: " + ", ".join(missing))
-        brief = load(args.brief)
-        validate(brief)
-        video_brief = {**brief, "audio": False} if speech_settings() else brief
-        if not image_settings():
-            video_route(os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", ""), video_brief)
-        ffmpeg()
+        check_setup(args.brief, args.platform)
         args.demo = False
         folder = draft(args)
         process(folder, argparse.Namespace(command="render", video=None))
