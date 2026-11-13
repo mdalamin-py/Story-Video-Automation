@@ -1,33 +1,59 @@
 # Story Video Automation
 
-## নমুনা
+## Run the demo
 
-PowerShell-এ এই ফোল্ডার খুলে চালান।
+Open PowerShell in the project folder and run:
 
-    .\run.cmd draft --demo
-    .\run.cmd render RUN_NAME
+```powershell
+.\run.cmd draft --demo
+.\run.cmd render RUN_NAME
+```
 
-প্রথম কমান্ড যে Run নাম দেখায়, দ্বিতীয় কমান্ডে সেটি দিন। `runs/RUN_NAME/preview.mp4`-তে রঙিন ফ্রেমসহ বাংলা ক্যাপশনের নমুনা পাওয়া যাবে।
+Replace `RUN_NAME` with the name printed by the first command. Open `runs/RUN_NAME/preview.mp4` to see a sample with colored frames and Bengali captions.
 
-## নিজের গল্প ও শেষ মুহূর্তের পরিবর্তন
+## Use your own story and make last-minute changes
 
-1. `input/brief.json`-এর `story`-তে আপনার গল্প বা আইডিয়া লিখুন। `final_changes`-এ শেষ মুহূর্তের নির্দেশ দিন। একই ফাইলে ভাষা, ভিডিও স্টাইল, দৈর্ঘ্য, অডিও ও ক্যাপশন বদলান। 1080p ভার্টিক্যাল ডিফল্ট।
-2. `.env.example` কপি করে `.env` বানান। OpenAI API key ও আপনার অ্যাকাউন্টে চালু থাকা Responses API model দিন। FFmpeg PATH-এ, `FFMPEG_PATH`-এ, অথবা Python-এর imageio-ffmpeg প্যাকেজে থাকতে হবে। ক্যাপশনের জন্য FFmpeg-এ libass প্রয়োজন।
-3. `.\run.cmd draft` চালিয়ে `runs/RUN_NAME/plan.json` দেখুন। দৃশ্য, সংলাপ, ক্যাপশন বা পোস্টের লেখা এখানেই সম্পাদনা করুন। নতুন শেষ নির্দেশ দিয়ে গল্প আবার লেখাতে ইনপুট বদলে আবার draft চালান।
-4. `.\run.cmd render RUN_NAME` চালান। আপনার কেনা সার্ভিস **muse-video.com** হলে `MUSE_PROVIDER=muse-video.com` এবং `MUSE_API_KEY` সেট করুন। অন্য Muse সার্ভিস হলে তার adapter লাগবে। সম্পাদনার পর নতুন ভিডিও রেন্ডার করতে ক্রেডিট লাগতে পারে। নিজের MP4 ব্যবহার করতে `.\run.cmd render RUN_NAME --video "D:\my-video.mp4"` চালান।
-5. `preview.mp4`-তে দৃশ্য, শব্দ ও উচ্চারণ মিলিয়ে নিন। আপলোডের জন্য `made_for_kids` ও `synthetic_disclosure` কনটেন্ট অনুযায়ী সেট করুন।
+1. Enter your story or idea in `story` in `input/brief.json`. Put last-minute instructions in `final_changes`. Use the same file to adjust the language, visual style, duration, audio, and captions. The default output is vertical 1080p.
+2. Copy `.env.example` to `.env`. Set your OpenAI API key and a Responses API model available to your account, or configure the [multi-provider story router](documentation/implementation.md). FFmpeg must be available through PATH, `FFMPEG_PATH`, or Python's `imageio-ffmpeg` package. Burning captions requires FFmpeg with libass.
+3. Run `.\run.cmd draft` and review `runs/RUN_NAME/plan.json`. Edit scenes, dialogue, captions, or post copy directly in the plan. To regenerate the story with new instructions, edit the brief and run `draft` again.
+4. Run `.\run.cmd render RUN_NAME`. If your video service is **muse-video.com**, set `MUSE_PROVIDER=muse-video.com` and `MUSE_API_KEY`. Other Muse services require their own adapter. Regenerating edited scenes may use credits. To supply your own MP4, run `.\run.cmd render RUN_NAME --video "D:\my-video.mp4"`.
+5. Review the visuals, audio, and pronunciation in `preview.mp4`. Set `made_for_kids` and `synthetic_disclosure` according to your content before uploading.
 
-## আপলোড ও অটোমেশন
+## Export resolution
 
-YouTube Data API সক্রিয় Google OAuth client এবং `youtube.upload` অনুমতিসহ refresh token দিন। Facebook-এর জন্য Page ID, Page access token ও Graph API version দিন। Credentials স্থানীয় `.env`-এ রাখুন।
+`resolution` sets the Muse source to 720p or 1080p. `export_resolution` selects 720p (720×1280), 1080p (1080×1920), 1440p (1440×2560), or 4K (2160×3840). FFmpeg uses Lanczos scaling when the export exceeds the source resolution. Changing only the export resolution reuses the cached Muse clips for that run. An MP4 supplied with `--video` retains its original resolution.
 
-    .\run.cmd upload RUN_NAME --platform both
-    .\run.cmd upload RUN_NAME --platform both --public
-    .\run.cmd auto --platform both --public
+## Upload and automate
 
-প্রথম কমান্ড YouTube private ও Facebook draft হিসেবে জমা দেয়। দ্বিতীয়টি সরাসরি public জমা দেয়। তৃতীয়টি বর্তমান গল্প ও শেষ নির্দেশ নিয়ে গল্প লেখা থেকে আপলোড পর্যন্ত একবারে চালায়। `auto`-তে মাঝখানে প্রিভিউ দেখে থামতে চাইলে আলাদা draft, render ও upload কমান্ড ব্যবহার করুন।
+For YouTube, configure a Google OAuth client with YouTube Data API enabled and a refresh token authorized for `youtube.upload`. For Facebook, set the Page ID, Page access token, and Graph API version. Keep credentials in the local `.env` file.
 
-একই রানে সফল প্ল্যাটফর্ম পুনরায় জমা হয় না। Private বা draft থেকে public করতে সংশ্লিষ্ট প্ল্যাটফর্মের Studio ব্যবহার করুন। সংযোগ বিচ্ছিন্ন হলে পুনরায় জমা দেওয়ার আগে প্ল্যাটফর্মে ফল যাচাই করুন। Muse-এ আটকে থাকলে একই রান দিয়ে render চালিয়ে polling চালু করুন।
+```powershell
+.\run.cmd upload RUN_NAME --platform both
+.\run.cmd upload RUN_NAME --platform both --public
+.\run.cmd auto --platform both --public
+```
+
+The first command submits the video as private on YouTube and as a draft on Facebook. The second requests public publication. The third uses the current story and final instructions to generate, render, and submit the video in one run. To review the preview before uploading, use the separate `draft`, `render`, and `upload` commands.
+
+Successful submissions are recorded per run and platform. Use YouTube Studio or Meta Business Suite to publish an existing private video or draft. If the connection drops during an upload, check the platform for the result before resubmitting. If Muse is still processing a scene, rerun `render` with the same run name to resume polling.
+
+## Local dashboard and worker
+
+Install Python 3.12+, FFmpeg, and the Python dependencies. From the project root, set a private admin token of at least 24 characters in the API terminal and start the server:
+
+```powershell
+python -m pip install -r requirements.txt
+$env:STUDIO_ADMIN_TOKEN = 'replace-with-a-long-random-token'
+python -m uvicorn backend.api:app --host 127.0.0.1 --port 8765
+```
+
+In a second terminal, start the worker from the same folder:
+
+```powershell
+python -m backend.worker
+```
+
+Open `http://127.0.0.1:8765`, enter the admin token, and queue a demo or a real render. Pending jobs persist in the local SQLite database. If a worker stops during a paid render or an upload, inspect the provider or platform and the run receipts before resubmitting. See the [implementation checklist](documentation/implementation.md) for distributed deployment work.
 
 - [OpenAI Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create)
 - [Muse Video API](https://muse-video.com/docs/api)

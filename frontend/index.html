@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Story Video Studio</title>
+<style>
+:root{color-scheme:dark;font:15px Inter,system-ui,sans-serif;background:#11121a;color:#ecedf6}
+*{box-sizing:border-box}body{max-width:1120px;margin:auto;padding:40px 24px}h1{font-size:clamp(32px,5vw,56px);letter-spacing:-.05em;margin:0 0 24px}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}section{background:#1a1d29;border:1px solid #33374a;border-radius:18px;padding:22px}
+h2{margin:0 0 16px}label{display:block;margin-bottom:12px}input,textarea,select{width:100%;margin-top:5px;border:1px solid #484d66;border-radius:8px;background:#121420;color:inherit;padding:9px;font:inherit}textarea{resize:vertical}input[type=checkbox]{width:auto}
+button{border:0;border-radius:8px;background:#bcb1ff;color:#17122e;font:600 14px system-ui;padding:9px 14px;cursor:pointer}li button{margin-left:8px}li{margin-bottom:12px}ul{padding-left:20px}video{width:100%;max-height:380px;margin-top:12px}#status{min-height:22px;color:#dbd4ff}
+@media(max-width:740px){main{grid-template-columns:1fr}}
+</style>
+<h1>Story Video Studio</h1>
+<label>Admin token <input id="token" type="password" autocomplete="off"></label>
+<p id="status" role="status"></p>
+<main>
+<section><h2>New video</h2>
+<form id="new-job">
+<label>Story or idea <textarea name="story" rows="5" required maxlength="24000"></textarea></label>
+<label>Final changes <textarea name="final_changes" rows="3" maxlength="6000"></textarea></label>
+<label>Language <input name="language" value="বাংলা" required></label>
+<label>Visual style <input name="style" value="Cinematic natural light" required></label>
+<label>Export resolution <select name="export_resolution"><option>720p</option><option selected>1080p</option><option>1440p</option><option value="2160p">4K</option></select></label>
+<label><input type="checkbox" name="demo" checked> Demo render</label>
+<button type="submit">Queue video</button>
+</form></section>
+<section><h2>Job queue</h2><button id="refresh">Refresh jobs</button><ul id="jobs"></ul><video id="preview" controls hidden></video></section>
+</main>
+<script>
+const token = document.querySelector('#token');
+const status = document.querySelector('#status');
+const preview = document.querySelector('#preview');
+let previewUrl;
+async function call(path, options = {}) {
+  const response = await fetch(path, {
+    ...options, headers: {'Authorization': 'Bearer ' + token.value,
+      'Content-Type': 'application/json', ...options.headers}
+  });
+  if (!response.ok) {
+    const result = await response.json();
+    throw new Error(typeof result.detail === 'string' ? result.detail : 'Request validation failed.');
+  }
+  return response;
+}
+async function refresh() {
+  const rows = await (await call('/api/jobs')).json();
+  const list = document.querySelector('#jobs');
+  list.replaceChildren();
+  for (const row of rows) {
+    const item = document.createElement('li');
+    item.textContent = row.state + ' · ' + row.id.slice(0, 8) + (row.error ? ' · ' + row.error : '');
+    if (row.state === 'READY_TO_PUBLISH') {
+      const button = document.createElement('button');
+      button.textContent = 'Preview';
+      button.onclick = () => handle(async () => {
+        const file = await (await call('/api/jobs/' + row.id + '/preview')).blob();
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = URL.createObjectURL(file);
+        preview.src = previewUrl;
+        preview.hidden = false;
+      });
+      item.append(button);
+      if (!row.demo) {
+        const deliveries = await (await call('/api/jobs/' + row.id + '/deliveries')).json();
+        for (const platform of ['youtube', 'facebook']) {
+          const existing = deliveries.find(delivery => delivery.platform === platform);
+          const upload = document.createElement('button');
+          upload.textContent = existing ? platform + ': ' + existing.state : 'Upload to ' + platform;
+          upload.disabled = Boolean(existing);
+          upload.onclick = () => handle(async () => {
+            await call('/api/jobs/' + row.id + '/deliveries', {
+              method: 'POST', body: JSON.stringify({platform, public: false})
+            });
+            await refresh();
+          });
+          item.append(upload);
+        }
+      }
+    }
+    list.append(item);
+  }
+}
+async function handle(action) {
+  try { await action(); status.textContent = ''; }
+  catch (error) { status.textContent = error.message; }
+}
+document.querySelector('#refresh').onclick = () => handle(refresh);
+document.querySelector('#new-job').onsubmit = event => {
+  event.preventDefault();
+  const values = Object.fromEntries(new FormData(event.target));
+  const demo = values.demo === 'on';
+  delete values.demo;
+  handle(async () => {
+    await call('/api/jobs', {method: 'POST', body: JSON.stringify({brief: values, demo})});
+    await refresh();
+  });
+};
+setInterval(() => { if (token.value) handle(refresh); }, 5000);
+</script>
+</html>

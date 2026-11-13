@@ -6,6 +6,7 @@
   "scene_count": 3,
   "seconds_per_scene": 6,
   "resolution": "1080p",
+  "export_resolution": "1080p",
   "audio": true,
   "burn_captions": true,
   "made_for_kids": false,

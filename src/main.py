@@ -8,11 +8,18 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from media import render, ffmpeg
-from providers import muse_video, publish_facebook, publish_youtube, required, story_plan, write_json
+from media import VERTICAL_SIZES, ffmpeg, render
+from providers import STORY_INSTRUCTIONS, publish_facebook, publish_youtube, required, story_plan, write_json
+
+from video_providers import select_video_provider
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / "runs"
+
+PUBLISH_CREDENTIALS = {
+    "youtube": ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"),
+    "facebook": ("FACEBOOK_GRAPH_VERSION", "FACEBOOK_PAGE_TOKEN", "FACEBOOK_PAGE_ID"),
+}
 
 
 def load(path):
@@ -44,7 +51,9 @@ def validate(brief, plan=None):
         if type(brief[field]) is not int or not lower <= brief[field] <= upper:
             raise ValueError(f"{field} must be an integer between {lower} and {upper}.")
     if brief["resolution"] not in {"720p", "1080p"}:
-        raise ValueError("resolution must be 720p or 1080p.")
+        raise ValueError("Muse source resolution must be 720p or 1080p.")
+    if brief.get("export_resolution", brief["resolution"]) not in VERTICAL_SIZES:
+        raise ValueError("export_resolution must be one of: " + ", ".join(VERTICAL_SIZES))
     for field in ("audio", "burn_captions", "made_for_kids", "synthetic_disclosure"):
         if type(brief[field]) is not bool:
             raise ValueError(f"{field} must be true or false.")
@@ -73,12 +82,25 @@ def fingerprint(*paths):
     return digest.hexdigest()
 
 
+def render_fingerprint(brief_path, plan, video):
+    scene_data = json.dumps(plan["scenes"], ensure_ascii=False, sort_keys=True).encode()
+    return hashlib.sha256(fingerprint(brief_path, video).encode() + scene_data).hexdigest()
+
+
 def draft(args):
     brief = load(args.brief)
     if args.demo:
         brief["scene_count"] = 3
     validate(brief)
-    plan = demo_plan(brief) if args.demo else story_plan(brief)
+    config = os.environ.get("STORY_PROVIDER_CONFIG", "").strip()
+    if args.demo:
+        plan = demo_plan(brief)
+    elif config:
+        from provider_router import generate_story
+
+        plan = generate_story(ROOT / config, brief, STORY_INSTRUCTIONS)
+    else:
+        plan = story_plan(brief)
     validate(brief, plan)
     folder = RUNS / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     folder.mkdir(parents=True)
@@ -108,31 +130,40 @@ def process(folder, args):
                 temporary.replace(video)
         else:
             ffmpeg()
-            assets = folder / "assets" / fingerprint(brief_path, plan_path)
-            assets.mkdir(parents=True, exist_ok=True)
+            generation_inputs = {key: brief[key] for key in ("resolution", "style", "audio", "seconds_per_scene")}
+            generation_inputs["scenes"] = [
+                {key: scene[key] for key in ("visual_prompt", "dialogue")} for scene in plan["scenes"]
+            ]
+            video_provider = os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", "")
             if not demo:
+                adapter = select_video_provider(video_provider, brief)
+                if video_provider != "muse-video.com":
+                    generation_inputs["provider"] = video_provider
+            asset_key = hashlib.sha256(json.dumps(generation_inputs, sort_keys=True).encode()).hexdigest()
+            assets = folder / "assets" / asset_key
+            assets.mkdir(parents=True, exist_ok=True)
+            if not demo and video_provider == "muse-video.com":
                 credits = brief["scene_count"] * brief["seconds_per_scene"] * (
                     75 if brief["resolution"] == "1080p" else 40)
                 print(f"Estimated Muse credits: {credits}", flush=True)
+            output = brief.get("export_resolution", brief["resolution"])
+            if VERTICAL_SIZES[output][0] > VERTICAL_SIZES[brief["resolution"]][0]:
+                print(f"Upscaling {brief['resolution']} source to {output}.", flush=True)
             clips = [] if demo else [
-                muse_video(scene, brief, assets, number)
+                adapter(scene, brief, assets, number)
                 for number, scene in enumerate(plan["scenes"], 1)
             ]
             render(clips, plan["scenes"], brief, folder, demo)
-        write_json(render_state, {"fingerprint": fingerprint(brief_path, plan_path, video)})
+        write_json(render_state, {"fingerprint": render_fingerprint(brief_path, plan, video)})
         print(f"Preview: {video}")
         return
     if demo:
         raise ValueError("Create a real draft to upload.")
     if not render_state.is_file() or not video.is_file():
         raise ValueError("Render the video before uploading.")
-    if load(render_state)["fingerprint"] != fingerprint(brief_path, plan_path, video):
-        raise ValueError("The plan or video changed. Render again before uploading.")
+    if load(render_state)["fingerprint"] != render_fingerprint(brief_path, plan, video):
+        raise ValueError("The scene plan, brief or video changed. Render again before uploading.")
     publishers = {"youtube": publish_youtube, "facebook": publish_facebook}
-    variables = {
-        "youtube": ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"),
-        "facebook": ("FACEBOOK_GRAPH_VERSION", "FACEBOOK_PAGE_TOKEN", "FACEBOOK_PAGE_ID"),
-    }
     platforms = list(publishers) if args.platform == "both" else [args.platform]
     for platform in platforms:
         state = folder / f"publish-{platform}.json"
@@ -142,7 +173,7 @@ def process(folder, args):
                 print(f"{platform}: already submitted as {receipt['id']}")
                 continue
             raise RuntimeError(f"Check {platform} for an existing upload before retrying.")
-        for variable in variables[platform]:
+        for variable in PUBLISH_CREDENTIALS[platform]:
             required(variable)
         write_json(state, {"status": "submission pending", "public": args.public})
         receipt = publishers[platform](video, plan, brief, folder, args.public)
@@ -172,9 +203,18 @@ def main():
         draft(args)
         return
     if args.command == "auto":
-        if required("MUSE_PROVIDER") != "muse-video.com":
-            raise ValueError("Confirm that your Muse provider is muse-video.com.")
-        required("MUSE_API_KEY")
+        platforms = PUBLISH_CREDENTIALS if args.platform == "both" else (args.platform,)
+        settings = []
+        if not os.environ.get("STORY_PROVIDER_CONFIG", "").strip():
+            settings.extend(["OPENAI_API_KEY", "OPENAI_MODEL"])
+        for platform in platforms:
+            settings.extend(PUBLISH_CREDENTIALS[platform])
+        missing = [name for name in settings if not os.environ.get(name, "").strip()]
+        if missing:
+            raise ValueError("Missing settings in .env: " + ", ".join(missing))
+        brief = load(args.brief)
+        validate(brief)
+        select_video_provider(os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", ""), brief)
         ffmpeg()
         args.demo = False
         folder = draft(args)

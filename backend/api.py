@@ -1,0 +1,99 @@
+import os
+import secrets
+from typing import Annotated, Literal
+
+from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, ConfigDict, Field
+
+from backend.jobs import ROOT, deliveries, enqueue, get_jobs, lookup, schedule_delivery, transition
+
+app = FastAPI(title="Story Video Studio", docs_url=None, redoc_url=None)
+
+
+class Brief(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    story: str = Field(min_length=1, max_length=24000)
+    final_changes: str = Field(default="", max_length=6000)
+    language: str = Field(default="বাংলা", min_length=1, max_length=100)
+    style: str = Field(default="Cinematic natural light", min_length=1, max_length=500)
+    scene_count: int = Field(default=3, ge=1, le=5)
+    seconds_per_scene: int = Field(default=6, ge=4, le=12)
+    resolution: Literal["720p", "1080p"] = "1080p"
+    export_resolution: Literal["720p", "1080p", "1440p", "2160p"] = "1080p"
+    audio: bool = True
+    burn_captions: bool = True
+    made_for_kids: bool = False
+    synthetic_disclosure: bool = False
+
+
+class Submission(BaseModel):
+    brief: Brief
+    demo: bool = True
+
+
+def authenticate(authorization: Annotated[str | None, Header()] = None):
+    token = os.environ.get("STUDIO_ADMIN_TOKEN", "")
+    if len(token) < 24:
+        raise HTTPException(503, "Set STUDIO_ADMIN_TOKEN to at least 24 characters.")
+    supplied = authorization or ""
+    if not secrets.compare_digest(supplied.encode(), ("Bearer " + token).encode()):
+        raise HTTPException(401, "Invalid admin token.")
+
+
+Admin = Annotated[None, Depends(authenticate)]
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.get("/")
+def dashboard():
+    return FileResponse(ROOT / "frontend" / "index.html")
+
+
+@app.get("/api/jobs")
+def jobs(_: Admin):
+    return get_jobs()
+
+
+@app.post("/api/jobs", status_code=201)
+def submit(submission: Submission, _: Admin):
+    return {"id": enqueue(submission.brief.model_dump(), submission.demo)}
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel(job_id: str, _: Admin):
+    if not transition(job_id, "PENDING", "CANCELLED"):
+        raise HTTPException(409, "Only pending jobs can be cancelled.")
+    return {"state": "CANCELLED"}
+
+
+@app.get("/api/jobs/{job_id}/preview")
+def preview(job_id: str, _: Admin):
+    row = lookup(job_id)
+    if not row or row["state"] != "READY_TO_PUBLISH":
+        raise HTTPException(404, "Preview unavailable.")
+    path = ROOT / "runs" / row["run"] / "preview.mp4"
+    if not path.is_file():
+        raise HTTPException(404, "Preview file unavailable.")
+    return FileResponse(path, media_type="video/mp4")
+
+
+class Delivery(BaseModel):
+    platform: Literal["youtube", "facebook"]
+    public: bool = False
+
+
+@app.post("/api/jobs/{job_id}/deliveries", status_code=202)
+def publish(job_id: str, delivery: Delivery, _: Admin):
+    if not schedule_delivery(job_id, delivery.platform, delivery.public):
+        raise HTTPException(409, "The real video must be ready and have no existing delivery for this platform.")
+    return {"state": "PENDING"}
+
+
+@app.get("/api/jobs/{job_id}/deliveries")
+def delivery_status(job_id: str, _: Admin):
+    return deliveries(job_id)

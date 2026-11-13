@@ -2,6 +2,13 @@ import os
 import shutil
 import subprocess
 
+VERTICAL_SIZES = {
+    "720p": (720, 1280),
+    "1080p": (1080, 1920),
+    "1440p": (1440, 2560),
+    "2160p": (2160, 3840),
+}
+
 
 def ffmpeg():
     path = os.environ.get("FFMPEG_PATH") or shutil.which("ffmpeg")
@@ -24,7 +31,8 @@ def timestamp(seconds):
 
 
 def render(clips, scenes, brief, folder, demo=False):
-    width, height = (1080, 1920) if brief["resolution"] == "1080p" else (720, 1280)
+    width, height = VERTICAL_SIZES[brief.get("export_resolution", brief["resolution"])]
+    source_width, source_height = VERTICAL_SIZES[brief["resolution"]]
     seconds = brief["seconds_per_scene"]
     captions = []
     for index, scene in enumerate(scenes):
@@ -37,7 +45,7 @@ def render(clips, scenes, brief, folder, demo=False):
         clips = []
         for index in range(len(scenes)):
             clip = folder / f"demo-{index:02}.mp4"
-            run("-f", "lavfi", "-i", f"color={colors[index]}:s={width}x{height}:r=30",
+            run("-f", "lavfi", "-i", f"color={colors[index]}:s={source_width}x{source_height}:r=30",
                 "-t", str(seconds), "-c:v", "libx264", "-preset", "ultrafast", str(clip))
             clips.append(clip)
     for index, clip in enumerate(clips):
@@ -46,7 +54,7 @@ def render(clips, scenes, brief, folder, demo=False):
                                capture_output=True, text=True)
         audio = "0:a:0" if brief["audio"] and "Audio:" in probe.stderr else "1:a:0"
         run(*args, "-map", "0:v:0", "-map", audio, "-af", "apad", "-t", str(seconds),
-            "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+            "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease:flags=lanczos,"
                    f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,"
                    f"tpad=stop_mode=clone:stop_duration={seconds}",
             "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p",

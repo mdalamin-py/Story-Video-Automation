@@ -1,0 +1,25 @@
+{
+  "policy": "priority",
+  "fallback": true,
+  "max_estimated_usd": 0.1,
+  "providers": [
+    {
+      "name": "openai",
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-5-mini",
+      "key_env": "OPENAI_API_KEY",
+      "priority": 10,
+      "estimated_usd": 0.05,
+      "token_parameter": "max_completion_tokens"
+    },
+    {
+      "name": "custom",
+      "base_url": "https://example.com/v1",
+      "model": "replace-with-provider-model",
+      "key_env": "CUSTOM_LLM_API_KEY",
+      "priority": 20,
+      "estimated_usd": 0.05,
+      "enabled": false
+    }
+  ]
+}

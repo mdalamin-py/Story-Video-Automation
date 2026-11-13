@@ -14,6 +14,13 @@ def required(name):
     return value
 
 
+class ProviderHTTPError(RuntimeError):
+    def __init__(self, host, status, retry_after=None):
+        super().__init__(f"{host} returned HTTP {status}.")
+        self.status = status
+        self.retry_after = retry_after
+
+
 def request(url, method="GET", token=None, payload=None, headers=None, stream=None):
     headers = dict(headers or {})
     if token:
@@ -25,7 +32,8 @@ def request(url, method="GET", token=None, payload=None, headers=None, stream=No
         with urlopen(Request(url, data=stream, headers=headers, method=method), timeout=180) as reply:
             return json.loads(reply.read() or b"{}"), reply.headers
     except HTTPError as exc:
-        raise RuntimeError(f"{urlsplit(url).hostname} returned HTTP {exc.code}.") from None
+        retry = exc.headers.get("Retry-After", "")
+        raise ProviderHTTPError(urlsplit(url).hostname, exc.code, int(retry) if retry.isdigit() else None) from None
 
 
 def write_json(path, data):
@@ -34,22 +42,23 @@ def write_json(path, data):
     temporary.replace(path)
 
 
+STORY_INSTRUCTIONS = (
+    "Adapt the supplied story or develop the supplied idea into an original short video. "
+    "Preserve plot, characters, and ending unless final_changes overrides them. "
+    "Follow the requested language, style, dialogue, and captions. "
+    "Return a JSON object with title, description, story, and scenes. "
+    "Use exactly scene_count scenes, each with visual_prompt, dialogue, and caption strings. "
+    "Time each scene for seconds_per_scene. Keep the title within 95 characters. "
+    "Keep character appearance, wardrobe, camera, lighting, and color consistent. "
+    "Keep dialogue brief and leave unwanted dialogue or captions empty."
+)
+
+
 def story_plan(brief):
     response, _ = request("https://api.openai.com/v1/responses", "POST",
         required("OPENAI_API_KEY"), {
             "model": required("OPENAI_MODEL"), "store": False,
-            "instructions": (
-                "Adapt the user's story into a short video. Preserve the supplied plot, names, "
-                "and ending except where final_changes explicitly overrides them. "
-                "If the input is an idea, develop it into an original story. "
-                "Follow requested language, style, dialogue and caption preferences. "
-                "Return JSON with title, description, story and scenes. Each scene has "
-                "visual_prompt, dialogue and caption strings. Use exactly scene_count scenes, "
-                "each timed for seconds_per_scene. Write each self-contained visual prompt "
-                "with consistent character descriptions, wardrobe, lighting, camera and color. "
-                "Keep dialogue short, and leave dialogue or caption empty when unwanted. "
-                "Avoid baked-in text in video prompts. Keep title at most 95 characters."
-            ),
+            "instructions": STORY_INSTRUCTIONS,
             "input": json.dumps(brief, ensure_ascii=False),
             "text": {"format": {"type": "json_object"}},
         })
@@ -63,8 +72,6 @@ def story_plan(brief):
 
 
 def muse_video(scene, brief, folder, number):
-    if required("MUSE_PROVIDER") != "muse-video.com":
-        raise ValueError("This adapter is for muse-video.com. Confirm your provider before using it.")
     base = "https://muse-video.com/api/v1/"
     token = required("MUSE_API_KEY")
     clip = folder / f"scene-{number:02}.mp4"
