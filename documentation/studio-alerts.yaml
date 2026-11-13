@@ -1,0 +1,13 @@
+groups:
+  - name: story-video-studio
+    rules:
+      - alert: StudioMetricsUnavailable
+        expr: up{job="story-video-studio"} == 0
+        for: 2m
+        annotations:
+          summary: The studio metrics endpoint is unreachable.
+      - alert: StudioQueueHasFailures
+        expr: sum(studio_queue_items{state="FAILED"}) > 0
+        for: 5m
+        annotations:
+          summary: The studio queue contains failed jobs or deliveries.

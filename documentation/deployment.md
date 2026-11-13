@@ -79,3 +79,4 @@ The archive reader needs GetObject access to the previews prefix.
 Scrape /metrics with the studio admin bearer token. Store the token in
 the scraper's secret file. The endpoint exports queue items by state and
 worker heartbeat age. Size alert thresholds to the expected job runtime.
+Load studio-alerts.yaml as a Prometheus rule file and use story-video-studio as the scrape job name. Configure Alertmanager separately to deliver notifications.
