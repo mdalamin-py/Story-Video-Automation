@@ -1,0 +1,13 @@
+{
+  "story": "বৃষ্টির দিনে মীরা একটি কাগজের নৌকা বানিয়ে জলে ভাসিয়ে দিল।",
+  "final_changes": "শেষ দৃশ্যে উষ্ণ বিকেলের আলো দেখাও।",
+  "language": "বাংলা",
+  "style": "Cinematic framing, consistent characters, natural lighting, warm color grade",
+  "scene_count": 3,
+  "seconds_per_scene": 6,
+  "resolution": "1080p",
+  "audio": true,
+  "burn_captions": true,
+  "made_for_kids": false,
+  "synthetic_disclosure": false
+}
