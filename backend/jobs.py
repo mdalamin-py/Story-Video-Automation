@@ -10,6 +10,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from backend.preferences import read_preferences
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.environ.get("STUDIO_DATA_DIR", ROOT / "runs" / "studio")).resolve()
 
@@ -31,14 +33,20 @@ def connect():
         job_id TEXT NOT NULL, platform TEXT NOT NULL, publish_at TEXT NOT NULL,
         PRIMARY KEY(job_id, platform)
     )""")
+    db.execute("CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY, value TEXT NOT NULL)")
+    db.execute("CREATE TABLE IF NOT EXISTS job_preferences (id TEXT PRIMARY KEY, value TEXT NOT NULL)")
     return db
 
 
 def enqueue(brief, demo):
     job_id = uuid4().hex
     with closing(connect()) as db:
+        db.execute("BEGIN IMMEDIATE")
+        preferences = read_preferences(db).environment()
+        db.execute("INSERT INTO job_preferences VALUES(?,?)", (job_id, json.dumps(preferences)))
         db.execute("INSERT INTO jobs(id,demo,brief,state) VALUES(?,?,?,'PENDING')",
                    (job_id, int(demo), json.dumps(brief, ensure_ascii=False)))
+        db.commit()
     return job_id
 
 
@@ -69,9 +77,9 @@ def lookup(job_id):
         return dict(row) if row else None
 
 
-def invoke(*arguments):
+def invoke(*arguments, overrides=None):
     result = subprocess.run([sys.executable, str(ROOT / "src" / "main.py"), *arguments],
-                            cwd=ROOT, capture_output=True, encoding="utf-8",
+                            cwd=ROOT, env={**os.environ, **(overrides or {})}, capture_output=True, encoding="utf-8",
                             errors="replace", timeout=7200)
     if result.returncode:
         # Provider errors and subprocess arguments can contain private data.
@@ -86,13 +94,16 @@ def produce(row):
         arguments = ["draft", "--brief", str(brief_path)]
         if row["demo"]:
             arguments.append("--demo")
-        output = invoke(*arguments)
+        with closing(connect()) as db:
+            preferences = db.execute("SELECT value FROM job_preferences WHERE id=?", (row["id"],)).fetchone()
+        overrides = json.loads(preferences[0]) if preferences else {}
+        output = invoke(*arguments, overrides=overrides)
         match = re.search(r"^Run: ([0-9-]+)$", output, flags=re.M)
         if not match:
             raise RuntimeError("Draft did not report a run name.")
         run = match[1]
         transition(row["id"], "RUNNING", "RENDERING", run)
-        invoke("render", run)
+        invoke("render", run, overrides=overrides)
         transition(row["id"], "RENDERING", "READY_TO_PUBLISH")
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         message = str(exc) if isinstance(exc, RuntimeError) else type(exc).__name__

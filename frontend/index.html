@@ -28,6 +28,15 @@ button{border:0;border-radius:8px;background:#bcb1ff;color:#17122e;font:600 14px
 <section><h2>Job queue</h2><p id="activity"></p>
 <label>Upload time (optional, local time) <input id="publish-time" type="datetime-local"></label>
 <label><input id="public-upload" type="checkbox"> Request public publication</label><button id="refresh">Refresh jobs</button><ul id="jobs"></ul><video id="preview" controls hidden></video></section>
+<section><h2>Provider defaults</h2>
+<form id="provider-settings">
+<label>Video provider <select name="video_provider"><option value="">Use server settings</option><option>muse-video.com</option><option>runway</option></select></label>
+<label>Video backup <select name="video_fallback"><option value="">Use server settings</option><option>muse-video.com</option><option>runway</option></select></label>
+<label>Voice provider <select name="tts_provider"><option value="">Use server settings</option><option>openai</option><option>elevenlabs</option></select></label>
+<label>Story budget per job (USD) <input name="story_budget_usd" type="number" min="0" step="any"></label>
+<button type="button" id="load-providers">Load defaults</button>
+<button type="submit">Save defaults</button>
+</form></section>
 </main>
 <script>
 const token = document.querySelector('#token');
@@ -109,5 +118,19 @@ document.querySelector('#new-job').onsubmit = event => {
   });
 };
 setInterval(() => { if (token.value) handle(refresh); }, 5000);
+const providerForm = document.querySelector('#provider-settings');
+document.querySelector('#load-providers').onclick = () => handle(async () => {
+  const values = await (await call('/api/providers')).json();
+  for (const [key, value] of Object.entries(values)) providerForm.elements[key].value = value ?? '';
+});
+providerForm.onsubmit = event => {
+  event.preventDefault();
+  const values = Object.fromEntries(new FormData(providerForm));
+  values.story_budget_usd = values.story_budget_usd === '' ? null : Number(values.story_budget_usd);
+  for (const key of ['video_provider', 'video_fallback', 'tts_provider']) values[key] ||= null;
+  handle(async () => {
+    await call('/api/providers', {method: 'PUT', body: JSON.stringify(values)});
+  });
+};
 </script>
 </html>

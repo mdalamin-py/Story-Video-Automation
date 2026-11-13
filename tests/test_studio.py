@@ -61,3 +61,17 @@ def test_scheduled_delivery_waits(tmp_path, monkeypatch):
     assert not jobs.deliver_one()
     assert jobs.deliveries(job_id)[0]["publish_at"] == later.isoformat()
     assert jobs.summary()["deliveries"] == {"PENDING": 1}
+
+
+def test_queue_captures_provider_defaults(tmp_path, monkeypatch):
+    import json
+    from contextlib import closing
+    from backend.preferences import Preferences, save_preferences
+
+    monkeypatch.setattr(jobs, "DATA", tmp_path)
+    save_preferences(Preferences(video_provider="runway", story_budget_usd=0.02))
+    job = jobs.enqueue({"story": "fixture"}, False)
+    save_preferences(Preferences(video_provider="muse-video.com"))
+    with closing(jobs.connect()) as db:
+        value = db.execute("SELECT value FROM job_preferences WHERE id=?", (job,)).fetchone()[0]
+    assert json.loads(value) == {"VIDEO_PROVIDER": "runway", "STORY_BUDGET_USD": "0.02"}

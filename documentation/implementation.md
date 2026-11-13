@@ -120,3 +120,12 @@ The local dashboard accepts an optional publish time and sends it to the API
 as UTC. The worker submits due uploads while it is running. Platform
 processing can delay publication. The summary reports local job and
 delivery counts. Platform views and engagement require separate analytics.
+
+## Studio provider defaults
+
+Use Provider defaults in the local dashboard to set video, video backup,
+voice provider, and a per-job estimated story budget. Explicit dashboard
+values are captured at enqueue time. Unset values use the worker's current
+environment. Configure a story router before setting a budget; the lower of
+the router cap and dashboard cap applies. Voice models and credentials
+remain in the worker's configuration.

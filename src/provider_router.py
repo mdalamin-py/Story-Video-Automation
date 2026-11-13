@@ -81,6 +81,12 @@ def generate_story(path: Path, brief: dict, instructions: str) -> dict:
     except ValidationError as exc:
         raise ValueError(str(exc.errors(include_input=False, include_url=False))) from None
     remaining = config.max_estimated_usd
+    cap = os.environ.get("STORY_BUDGET_USD")
+    if cap:
+        budget = float(cap)
+        if not 0 <= budget < float("inf"):
+            raise ValueError("STORY_BUDGET_USD must be finite and nonnegative.")
+        remaining = min(remaining, budget)
     failures = []
     for provider in config.candidates():
         key = os.environ.get(provider.key_env, "").strip()

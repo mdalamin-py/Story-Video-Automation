@@ -8,6 +8,8 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from backend.jobs import ROOT, deliveries, enqueue, get_jobs, lookup, schedule_delivery, summary, transition
 
+from backend.preferences import Preferences, get_preferences, save_preferences
+
 app = FastAPI(title="Story Video Studio", docs_url=None, redoc_url=None)
 
 
@@ -103,3 +105,16 @@ def delivery_status(job_id: str, _: Admin):
 @app.get("/api/summary")
 def activity_summary(_: Admin):
     return summary()
+
+
+@app.get("/api/providers")
+def provider_preferences(_: Admin):
+    return get_preferences()
+
+
+@app.put("/api/providers")
+def update_provider_preferences(preferences: Preferences, _: Admin):
+    if preferences.video_fallback and preferences.video_fallback == preferences.video_provider:
+        raise HTTPException(422, "Choose a different video backup.")
+    save_preferences(preferences)
+    return preferences

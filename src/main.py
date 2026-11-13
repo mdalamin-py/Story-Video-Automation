@@ -101,6 +101,8 @@ def draft(args):
 
         plan = generate_story(ROOT / config, brief, STORY_INSTRUCTIONS)
     else:
+        if os.environ.get("STORY_BUDGET_USD"):
+            raise ValueError("Configure STORY_PROVIDER_CONFIG to enforce a story budget.")
         plan = story_plan(brief)
     validate(brief, plan)
     folder = RUNS / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
