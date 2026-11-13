@@ -67,3 +67,15 @@ Apply retention rules in the bucket configuration.
 Authenticated GET /api/operations returns queue totals and seconds since
 each worker last entered its queue loop. A worker processing a long job
 can have an older timestamp. Use container health and queue state together.
+
+## Archived playback and metrics
+
+If the local preview is missing, the authenticated preview endpoint
+redirects to a signed archive URL that expires after two minutes. For
+dashboard playback, make the S3 endpoint reachable from the browser
+and allow GET requests from the dashboard origin in the bucket CORS policy.
+The archive reader needs GetObject access to the previews prefix.
+
+Scrape /metrics with the studio admin bearer token. Store the token in
+the scraper's secret file. The endpoint exports queue items by state and
+worker heartbeat age. Size alert thresholds to the expected job runtime.

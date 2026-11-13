@@ -4,11 +4,12 @@ import secrets
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from backend.jobs import ROOT, deliveries, enqueue, get_jobs, invoke, lookup, schedule_delivery, summary, transition, worker_status
 
+from backend.storage import preview_url
 from backend.preferences import Preferences, get_preferences, save_preferences
 
 app = FastAPI(title="Story Video Studio", docs_url=None, redoc_url=None)
@@ -80,9 +81,16 @@ def preview(job_id: str, _: Admin):
     if not row or row["state"] != "READY_TO_PUBLISH":
         raise HTTPException(404, "Preview unavailable.")
     path = ROOT / "runs" / row["run"] / "preview.mp4"
-    if not path.is_file():
+    if path.is_file():
+        return FileResponse(path, media_type="video/mp4")
+    archive = path.with_name("archive.json")
+    if not archive.is_file():
         raise HTTPException(404, "Preview file unavailable.")
-    return FileResponse(path, media_type="video/mp4")
+    try:
+        url = preview_url(json.loads(archive.read_text(encoding="utf-8")), row["run"])
+    except Exception:
+        raise HTTPException(502, "Archived preview unavailable.") from None
+    return RedirectResponse(url, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
 
 class Delivery(BaseModel):
@@ -135,3 +143,18 @@ def video_analytics(job_id: str, platform: Literal["youtube", "facebook"], _: Ad
 @app.get("/api/operations")
 def operations(_: Admin):
     return {"worker_last_seen_seconds": worker_status(), **summary()}
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+def metrics(_: Admin):
+    lines = [
+        "# TYPE studio_queue_items gauge",
+        "# TYPE studio_worker_last_seen_seconds gauge",
+    ]
+    for queue, states in summary().items():
+        for state, count in states.items():
+            labels = f'queue={json.dumps(queue)},state={json.dumps(state)}'
+            lines.append(f"studio_queue_items{{{labels}}} {count}")
+    for name, age in worker_status().items():
+        lines.append(f"studio_worker_last_seen_seconds{{worker={json.dumps(name)}}} {age}")
+    return "\n".join(lines) + "\n"
