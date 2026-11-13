@@ -12,7 +12,7 @@ from media import VERTICAL_SIZES, ffmpeg, render
 from providers import STORY_INSTRUCTIONS, publish_facebook, publish_youtube, required, story_plan, write_json
 
 from speech import narration, settings as speech_settings
-from video_providers import select_video_provider
+from video_providers import video_route
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / "runs"
@@ -139,7 +139,7 @@ def process(folder, args):
             ]
             video_provider = os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", "")
             if not demo:
-                adapter = select_video_provider(video_provider, video_brief)
+                adapter = video_route(video_provider, video_brief)
                 if video_provider != "muse-video.com":
                     generation_inputs["provider"] = video_provider
             asset_key = hashlib.sha256(json.dumps(generation_inputs, sort_keys=True).encode()).hexdigest()
@@ -224,7 +224,7 @@ def main():
         brief = load(args.brief)
         validate(brief)
         video_brief = {**brief, "audio": False} if speech_settings() else brief
-        select_video_provider(os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", ""), video_brief)
+        video_route(os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", ""), video_brief)
         ffmpeg()
         args.demo = False
         folder = draft(args)

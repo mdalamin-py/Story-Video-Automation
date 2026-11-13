@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from urllib.parse import quote, urlsplit
 from urllib.request import urlopen
@@ -64,3 +65,33 @@ def select_video_provider(name, brief):
         raise ValueError("Runway Gen-4.5 requires 720p source, audio=false and 2–10 second scenes.")
     required("RUNWAY_API_KEY" if name == "runway" else "MUSE_API_KEY")
     return VIDEO_ADAPTERS[name]
+
+
+def video_route(primary_name, brief):
+    primary = select_video_provider(primary_name, brief)
+    backup_name = os.environ.get("VIDEO_FALLBACK_PROVIDER", "").strip()
+    if backup_name == primary_name:
+        raise ValueError("VIDEO_FALLBACK_PROVIDER must differ from VIDEO_PROVIDER.")
+    backup = select_video_provider(backup_name, brief) if backup_name else None
+
+    def render_scene(scene, video_brief, folder, number):
+        journal = folder / f"scene-{number:02}.json"
+        clip = folder / f"scene-{number:02}.mp4"
+        backup_folder = folder / ("fallback-" + backup_name)
+        route_record = folder / f"scene-{number:02}-route.json"
+        if route_record.is_file():
+            recorded = json.loads(route_record.read_text(encoding="utf-8"))["provider"]
+            if recorded != backup_name:
+                raise ValueError(f"Scene {number} already selected backup {recorded}. Restore that setting to resume.")
+            return backup(scene, video_brief, backup_folder, number)
+        try:
+            return primary(scene, video_brief, folder, number)
+        except ProviderHTTPError as exc:
+            if backup is None or exc.status != 429 or journal.exists() or clip.exists():
+                raise
+            print(f"Scene {number}: {primary_name} rejected submission (429); using {backup_name}.", flush=True)
+            backup_folder.mkdir(exist_ok=True)
+            write_json(route_record, {"provider": backup_name})
+            return backup(scene, video_brief, backup_folder, number)
+
+    return render_scene

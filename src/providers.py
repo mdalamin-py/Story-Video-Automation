@@ -87,11 +87,16 @@ def muse_video(scene, brief, folder, number):
         if scene["dialogue"] and brief["audio"]:
             prompt += "\nSpoken dialogue, exactly as written: " + scene["dialogue"]
         write_json(state_path, {"submission": "pending"})
-        response, _ = request(base + "generate", "POST", token, {
-            "model": "happyhorse-1.0-text-to-video", "prompt": prompt,
-            "duration": brief["seconds_per_scene"], "aspect_ratio": "9:16",
-            "resolution": brief["resolution"], "generate_audio": brief["audio"],
-        })
+        try:
+            response, _ = request(base + "generate", "POST", token, {
+                "model": "happyhorse-1.0-text-to-video", "prompt": prompt,
+                "duration": brief["seconds_per_scene"], "aspect_ratio": "9:16",
+                "resolution": brief["resolution"], "generate_audio": brief["audio"],
+            })
+        except ProviderHTTPError as exc:
+            if exc.status == 429:
+                state_path.unlink()
+            raise
         state = response["data"]
         write_json(state_path, state)
     for _ in range(240):

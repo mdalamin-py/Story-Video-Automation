@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -20,3 +20,26 @@ def test_runway_resumes_without_resubmitting(tmp_path, monkeypatch):
                 runway_video({}, {}, tmp_path, 1)
     request.assert_called_once()
     assert request.call_args.args[0].endswith("/tasks/job-1")
+
+@pytest.mark.parametrize("status,expected_calls", [(429, 1), (503, 0)])
+def test_fallback_only_after_rejected_submission(tmp_path, monkeypatch, status, expected_calls):
+    from providers import ProviderHTTPError
+    from video_providers import video_route
+
+    monkeypatch.setenv("VIDEO_FALLBACK_PROVIDER", "runway")
+    primary_error = ProviderHTTPError("muse-video.com", status)
+    with patch("video_providers.select_video_provider") as select:
+        primary = Mock(side_effect=primary_error)
+        backup = Mock()
+        select.side_effect = [primary, backup]
+        route = video_route("muse-video.com", {})
+        if expected_calls:
+            route({}, {}, tmp_path, 1)
+            route({}, {}, tmp_path, 1)
+            assert backup.call_count == 2
+            primary.assert_called_once()
+            assert (tmp_path / "scene-01-route.json").is_file()
+        else:
+            with pytest.raises(ProviderHTTPError):
+                route({}, {}, tmp_path, 1)
+            backup.assert_not_called()

@@ -102,3 +102,9 @@ model's language support and review pronunciation in the preview.
 
 - [OpenAI speech API](https://developers.openai.com/api/reference/resources/audio/subresources/speech/methods/create)
 - [ElevenLabs speech API](https://elevenlabs.io/docs/api-reference/text-to-speech/convert)
+
+Set VIDEO_FALLBACK_PROVIDER to a different configured video provider to opt
+into fallback after an explicit HTTP 429 rejection at submission. Both
+providers must support the requested source format, audio and duration.
+The chosen provider is recorded per scene. Polling and ambiguous submission
+failures remain with the original provider for reconciliation.
