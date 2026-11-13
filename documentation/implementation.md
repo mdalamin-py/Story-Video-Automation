@@ -4,7 +4,11 @@
 - [x] Story routing from config, strict scene schema, environment keys, estimated request budget and fallback tests.
 - [x] Local FastAPI dashboard, SQLite job queue, separate worker and preview.
 - [x] Independent approval-based delivery queues, with partial failure tests.
-- [ ] Extend category adapters and routing to video, image and TTS.
+- [x] Video and voice provider selection with explicit rate-limit fallback.
+- [x] OpenAI illustrated video mode.
+- [x] Local studio provider defaults and scheduled delivery.
+- [x] Single-host container configuration (container execution pending).
+- [ ] Additional image providers and centralized multi-category routing.
 - [ ] Add PostgreSQL schema, encrypted credential management, API authentication and provider settings.
 - [ ] Add Redis/Celery workers, persistent orchestration, reconciliation and S3 asset storage.
 - [ ] Add Next.js dashboard, provider controls, monitoring and approval workflow.
