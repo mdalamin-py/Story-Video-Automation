@@ -1,0 +1,12 @@
+**
+!requirements.txt
+!backend/
+!backend/**
+!frontend/
+!frontend/**
+!src/
+!src/**
+!input/
+!input/brief.json
+!input/story-providers.example.json
+**/__pycache__/
