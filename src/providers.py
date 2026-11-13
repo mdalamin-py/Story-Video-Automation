@@ -119,13 +119,17 @@ def muse_video(scene, brief, folder, number):
     raise TimeoutError("Muse is still processing. Run render again to continue polling.")
 
 
-def publish_youtube(path, plan, brief, folder, public):
+def youtube_access_token():
     credentials = {key: required("YOUTUBE_" + key.upper())
                    for key in ("client_id", "client_secret", "refresh_token")}
     token_result, _ = request("https://oauth2.googleapis.com/token", "POST", headers={
         "Content-Type": "application/x-www-form-urlencoded"
     }, stream=urlencode({**credentials, "grant_type": "refresh_token"}).encode())
-    token = token_result["access_token"]
+    return token_result["access_token"]
+
+
+def publish_youtube(path, plan, brief, folder, public):
+    token = youtube_access_token()
     size = path.stat().st_size
     url = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status"
     _, headers = request(url, "POST", token, {

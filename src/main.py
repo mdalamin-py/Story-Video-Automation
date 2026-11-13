@@ -176,6 +176,12 @@ def process(folder, args):
         write_json(render_state, {"fingerprint": render_fingerprint(brief_path, plan, video)})
         print(f"Preview: {video}")
         return
+    if args.command == "analytics":
+        from engagement import engagement
+
+        receipt = load(folder / f"publish-{args.platform}.json")
+        print(json.dumps(engagement(args.platform, str(receipt["id"]))))
+        return
     if demo:
         raise ValueError("Create a real draft to upload.")
     if not render_state.is_file() or not video.is_file():
@@ -208,9 +214,10 @@ def main():
         step = commands.add_parser(name)
         step.add_argument("--brief", type=Path, default=ROOT / "input" / "brief.json")
     commands.choices["draft"].add_argument("--demo", action="store_true")
-    for name in ("render", "upload"):
+    for name in ("render", "upload", "analytics"):
         step = commands.add_parser(name)
         step.add_argument("run")
+    commands.choices["analytics"].add_argument("--platform", choices=("youtube", "facebook"), required=True)
     commands.choices["render"].add_argument("--video", type=Path)
     for name in ("upload", "auto"):
         step = commands.choices[name]

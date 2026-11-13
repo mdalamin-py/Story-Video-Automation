@@ -1,3 +1,4 @@
+import json
 import os
 import secrets
 from typing import Annotated, Literal
@@ -6,7 +7,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from backend.jobs import ROOT, deliveries, enqueue, get_jobs, lookup, schedule_delivery, summary, transition
+from backend.jobs import ROOT, deliveries, enqueue, get_jobs, invoke, lookup, schedule_delivery, summary, transition
 
 from backend.preferences import Preferences, get_preferences, save_preferences
 
@@ -118,3 +119,14 @@ def update_provider_preferences(preferences: Preferences, _: Admin):
         raise HTTPException(422, "Choose a different video backup.")
     save_preferences(preferences)
     return preferences
+
+
+@app.get("/api/jobs/{job_id}/analytics/{platform}")
+def video_analytics(job_id: str, platform: Literal["youtube", "facebook"], _: Admin):
+    row = lookup(job_id)
+    if not row or not row["run"] or not (ROOT / "runs" / row["run"] / f"publish-{platform}.json").is_file():
+        raise HTTPException(404, "No upload receipt is available.")
+    try:
+        return json.loads(invoke("analytics", row["run"], "--platform", platform))
+    except (RuntimeError, ValueError):
+        raise HTTPException(502, "Analytics unavailable. Check the platform permissions and video status.") from None

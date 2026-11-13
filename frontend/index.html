@@ -25,7 +25,7 @@ button{border:0;border-radius:8px;background:#bcb1ff;color:#17122e;font:600 14px
 <label><input type="checkbox" name="demo" checked> Demo render</label>
 <button type="submit">Queue video</button>
 </form></section>
-<section><h2>Job queue</h2><p id="activity"></p>
+<section><h2>Job queue</h2><p id="activity"></p><p id="metrics" aria-live="polite"></p>
 <label>Upload time (optional, local time) <input id="publish-time" type="datetime-local"></label>
 <label><input id="public-upload" type="checkbox"> Request public publication</label><button id="refresh">Refresh jobs</button><ul id="jobs"></ul><video id="preview" controls hidden></video></section>
 <section><h2>Provider defaults</h2>
@@ -97,6 +97,21 @@ async function refresh() {
             await refresh();
           });
           item.append(upload);
+          if (existing?.state === 'SUBMITTED') {
+            const stats = document.createElement('button');
+            stats.textContent = platform + ' metrics';
+            stats.onclick = async () => {
+              try {
+                const values = await (await call('/api/jobs/' + row.id + '/analytics/' + platform)).json();
+                document.querySelector('#metrics').textContent =
+                  platform + ' · ' + (Object.entries(values).map(([name, value]) =>
+                    name + ' ' + Number(value).toLocaleString()).join(' · ') || 'No metrics returned');
+              } catch (error) {
+                document.querySelector('#metrics').textContent = error.message;
+              }
+            };
+            item.append(stats);
+          }
         }
       }
     }

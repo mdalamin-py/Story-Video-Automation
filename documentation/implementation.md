@@ -144,3 +144,17 @@ cached by prompt, model, and format within the render asset directory.
 A submission whose outcome is unknown requires manual reconciliation.
 
 - [OpenAI Images API](https://developers.openai.com/api/reference/resources/images/methods/generate)
+
+## Video engagement
+
+Use the metrics button for a submitted dashboard delivery, or run
+run.cmd analytics RUN_NAME --platform youtube (or facebook).
+The YouTube adapter reads lifetime views, likes and comments from the
+video statistics resource. The Facebook adapter reads the likes and
+comments summaries when available for that video. These are on-demand
+snapshots; missing fields are omitted. Use a token authorized to read
+the target video, in addition to any permissions needed to publish.
+
+- [YouTube video statistics](https://developers.google.com/youtube/data/reference/rest/v3/videos)
+- [Facebook object likes](https://developers.facebook.com/docs/graph-api/reference/object/likes)
+- [Facebook object comments](https://developers.facebook.com/docs/graph-api/reference/object/comments)
