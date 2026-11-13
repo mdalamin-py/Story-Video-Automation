@@ -11,7 +11,8 @@
 - [ ] Additional image providers and centralized multi-category routing.
 - [ ] Add PostgreSQL schema, encrypted credential management, API authentication and provider settings.
 - [x] Redis/Celery dispatch and PostgreSQL queue implementation, pending infrastructure acceptance.
-- [ ] Full workflow reconciliation and S3 asset storage.
+- [x] Optional S3 preview archiving and worker heartbeat endpoint.
+- [ ] Full workflow reconciliation, S3-backed media serving, and production alerting.
 - [x] Next.js dashboard, provider defaults, preview and approval-based delivery.
 - [ ] Production monitoring and full provider administration.
 - [ ] Extend media production and official social integrations.

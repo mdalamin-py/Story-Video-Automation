@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from backend.jobs import ROOT, deliveries, enqueue, get_jobs, invoke, lookup, schedule_delivery, summary, transition
+from backend.jobs import ROOT, deliveries, enqueue, get_jobs, invoke, lookup, schedule_delivery, summary, transition, worker_status
 
 from backend.preferences import Preferences, get_preferences, save_preferences
 
@@ -130,3 +130,8 @@ def video_analytics(job_id: str, platform: Literal["youtube", "facebook"], _: Ad
         return json.loads(invoke("analytics", row["run"], "--platform", platform))
     except (RuntimeError, ValueError):
         raise HTTPException(502, "Analytics unavailable. Check the platform permissions and video status.") from None
+
+
+@app.get("/api/operations")
+def operations(_: Admin):
+    return {"worker_last_seen_seconds": worker_status(), **summary()}

@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from backend.database import database
 from backend.preferences import read_preferences
+from backend.storage import archive_preview
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(os.environ.get("STUDIO_DATA_DIR", ROOT / "runs" / "studio")).resolve()
@@ -36,6 +37,7 @@ def connect():
     )""")
     db.execute("CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY, value TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS job_preferences (id TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    db.execute("CREATE TABLE IF NOT EXISTS worker_heartbeat (name TEXT PRIMARY KEY, seen TEXT NOT NULL)")
     db.commit()
     return db
 
@@ -106,6 +108,8 @@ def produce(row):
         run = match[1]
         transition(row["id"], "RUNNING", "RENDERING", run)
         invoke("render", run, overrides=overrides)
+        if not row["demo"]:
+            archive_job(run)
         transition(row["id"], "RENDERING", "READY_TO_PUBLISH")
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         message = str(exc) if isinstance(exc, RuntimeError) else type(exc).__name__
@@ -167,3 +171,30 @@ def summary():
             result[table] = {row["state"]: row["total"] for row in db.execute(
                 f"SELECT state,count(*) AS total FROM {table} GROUP BY state").fetchall()}
         return result
+
+
+def archive_job(run):
+    folder = ROOT / "runs" / run
+    try:
+        receipt = archive_preview(folder / "preview.mp4", run)
+    except Exception as exc:
+        raise RuntimeError("Preview archive failed: " + type(exc).__name__) from None
+    if receipt:
+        temporary = folder / "archive.tmp"
+        temporary.write_text(json.dumps(receipt), encoding="utf-8")
+        temporary.replace(folder / "archive.json")
+
+
+def heartbeat(name):
+    with closing(connect()) as db:
+        db.execute("""INSERT INTO worker_heartbeat(name,seen) VALUES(?,?)
+            ON CONFLICT(name) DO UPDATE SET seen=excluded.seen""",
+            (name, datetime.now(UTC).isoformat()))
+
+
+def worker_status():
+    now = datetime.now(UTC)
+    with closing(connect()) as db:
+        rows = db.execute("SELECT name,seen FROM worker_heartbeat").fetchall()
+    return {row["name"]: round((now - datetime.fromisoformat(row["seen"])).total_seconds(), 1)
+            for row in rows}

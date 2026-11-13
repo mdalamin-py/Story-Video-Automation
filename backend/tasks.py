@@ -3,7 +3,7 @@ import os
 
 from celery import Celery
 
-from backend.jobs import claim, deliver_one, produce
+from backend.jobs import claim, deliver_one, heartbeat, produce
 
 app = Celery("studio", broker=os.environ["STUDIO_REDIS_URL"])
 app.conf.update(
@@ -22,6 +22,7 @@ app.conf.update(
 
 @app.task(name="studio.produce")
 def produce_pending():
+    heartbeat("production")
     row = claim()
     if row:
         produce(row)
@@ -29,4 +30,5 @@ def produce_pending():
 
 @app.task(name="studio.deliver")
 def submit_due():
+    heartbeat("publishing")
     deliver_one()

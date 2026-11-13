@@ -2,7 +2,7 @@
 import argparse
 import time
 
-from backend.jobs import claim, deliver_one, produce
+from backend.jobs import claim, deliver_one, heartbeat, produce
 
 
 def main():
@@ -10,6 +10,7 @@ def main():
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
     while True:
+        heartbeat("local")
         row = claim()
         if row:
             produce(row)

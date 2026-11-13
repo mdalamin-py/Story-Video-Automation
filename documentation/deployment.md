@@ -54,3 +54,16 @@ the FastAPI port.
 The Next.js build and local SQLite test suite were verified on Windows.
 Run Compose and verify PostgreSQL, Redis, Celery, and a demo render on a
 Docker host before deploying with live API credentials.
+
+## Asset archive and worker status
+
+Set STUDIO_S3_BUCKET to enable private preview archiving for real studio
+jobs. Use the AWS SDK credential chain, a private bucket, and an identity
+authorized to write its previews prefix. Set STUDIO_S3_ENDPOINT for an
+S3-compatible service. The local preview remains the upload source.
+The archive receipt records the object key, size, and SHA-256 digest.
+Apply retention rules in the bucket configuration.
+
+Authenticated GET /api/operations returns queue totals and seconds since
+each worker last entered its queue loop. A worker processing a long job
+can have an older timestamp. Use container health and queue state together.
