@@ -88,13 +88,23 @@ export default function Studio() {
   }
 
   return <main>
-    <header><h1>Story Video Studio</h1><a href="/classic">Provider settings and classic studio</a></header>
+    <header><h1>Story Video Studio</h1><nav aria-label="Studio">
+      <a href="#create">Create</a><a href="#queue">Queue</a><a href="#providers">Providers</a>
+    </nav></header>
     <div className="connection"><label>Admin token<input type="password" autoComplete="off" value={token}
       onChange={event => {setToken(event.target.value); setJobs([]); setSelected(undefined); setPreview(""); setMetrics("");}} /></label>
       <button onClick={() => void act(refresh)}>Connect</button></div>
     <p role="alert">{error}</p>
+    <dl className="stats" aria-label="Recent jobs">
+      {[
+        ["Queued", jobs.filter(job => job.state === "PENDING").length],
+        ["Processing", jobs.filter(job => ["RUNNING", "RENDERING"].includes(job.state)).length],
+        ["Ready", jobs.filter(job => job.state === "READY_TO_PUBLISH").length],
+        ["Failed", jobs.filter(job => job.state === "FAILED").length],
+      ].map(([label, count]) => <div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}
+    </dl>
     <div className="columns">
-      <section><h2>New video</h2><form onSubmit={queue}>
+      <section id="create"><h2>New video</h2><form onSubmit={queue}>
         <label>Story or idea<textarea name="story" required maxLength={24000} rows={5} /></label>
         <label>Final changes<textarea name="final_changes" rows={2} /></label>
         <label>Language<input name="language" defaultValue="বাংলা" /></label>
@@ -105,8 +115,13 @@ export default function Studio() {
         <label><input name="demo" type="checkbox" defaultChecked /> Demo render</label>
         <button disabled={!token}>Queue video</button>
       </form></section>
-      <section><h2>Job queue</h2><ul>{jobs.map(job => <li key={job.id}>
-        <span>{job.id.slice(0, 8)} · {job.state} {job.error}</span>
+      <section id="queue"><h2>Job queue</h2>
+        {!jobs.length && <p className="muted">{token ? "No jobs to display." : "Connect to view your jobs."}</p>}
+        <ul>{jobs.map(job => <li key={job.id}>
+        <div><span className="job-id">{job.id.slice(0, 8)}</span>{" · "}
+          <span className="state" data-state={job.state}>{job.state.toLowerCase().replaceAll("_", " ")}</span>
+          {job.error && <div className="error-detail">{job.error}</div>}
+        </div>
         {job.state === "PENDING" && <button onClick={() => void act(async () => {
           await api("jobs/" + job.id + "/cancel", { method: "POST" }); await refresh();
         })}>Cancel</button>}
@@ -116,6 +131,12 @@ export default function Studio() {
           setSelected(job); setMetrics(""); setPreview(URL.createObjectURL(file));
         })}>Preview</button>}
       </li>)}</ul>
+      </section>
+    </div>
+    {selected && <section className="preview-panel" aria-labelledby="preview-title">
+      <div className="section-heading"><h2 id="preview-title">Preview and publishing</h2>
+        <button className="secondary" onClick={() => {setSelected(undefined); setPreview(""); setDeliveries([]); setMetrics("");}}>Close preview</button>
+      </div>
       {preview && <video controls src={preview} />}
       {selected && !selected.demo && <form onSubmit={publish}>
         <label>Platform<select name="platform"><option>youtube</option><option>facebook</option></select></label>
@@ -130,11 +151,10 @@ export default function Studio() {
           setMetrics(Object.entries(data).map(([key, value]) => key + " " + value).join(" · ") || "No metrics returned");
         })}>Metrics</button>}
       </li>)}</ul><p aria-live="polite">{metrics}</p>
-      </section>
-    </div>
-    <section className="provider-panel"><h2>Provider defaults</h2>
+    </section>}
+    <section id="providers" className="provider-panel"><h2>Provider defaults</h2>
       <form onSubmit={saveProviders}>
-        <div className="columns">
+        <div className="field-grid">
           {[
             ["video_provider", "Video provider", "muse-video.com", "runway"],
             ["video_fallback", "Video backup", "muse-video.com", "runway"],
