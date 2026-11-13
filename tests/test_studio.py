@@ -48,3 +48,16 @@ def test_platform_deliveries_are_independent(tmp_path, monkeypatch):
     assert not jobs.deliver_one()
     states = {row["platform"]: row["state"] for row in jobs.deliveries(job_id)}
     assert states == {"youtube": "FAILED", "facebook": "SUBMITTED"}
+
+
+def test_scheduled_delivery_waits(tmp_path, monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    monkeypatch.setattr(jobs, "DATA", tmp_path)
+    job_id = jobs.enqueue({"story": "fixture"}, False)
+    assert jobs.transition(job_id, "PENDING", "READY_TO_PUBLISH", "20260101-123456-123456")
+    later = datetime.now(UTC) + timedelta(hours=1)
+    assert jobs.schedule_delivery(job_id, "youtube", True, later)
+    assert not jobs.deliver_one()
+    assert jobs.deliveries(job_id)[0]["publish_at"] == later.isoformat()
+    assert jobs.summary()["deliveries"] == {"PENDING": 1}

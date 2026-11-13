@@ -11,7 +11,7 @@ from pathlib import Path
 from media import VERTICAL_SIZES, ffmpeg, render
 from providers import STORY_INSTRUCTIONS, publish_facebook, publish_youtube, required, story_plan, write_json
 
-from speech import narration, settings as speech_settings
+from speech import routed_narration, settings as speech_settings
 from video_providers import video_route
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -154,10 +154,10 @@ def process(folder, args):
                 print(f"Upscaling {brief['resolution']} source to {output}.", flush=True)
             voices = None
             if voice:
-                voice_folder = folder / "narration"
-                voice_folder.mkdir(exist_ok=True)
-                voices = [narration(scene, voice, voice_folder, brief["seconds_per_scene"])
-                          for scene in plan["scenes"]]
+                voice_folder = folder / "narration" / asset_key
+                voice_folder.mkdir(parents=True, exist_ok=True)
+                voices = [routed_narration(scene, voice, voice_folder, brief["seconds_per_scene"], number)
+                          for number, scene in enumerate(plan["scenes"], 1)]
             clips = [] if demo else [
                 adapter(scene, video_brief, assets, number)
                 for number, scene in enumerate(plan["scenes"], 1)

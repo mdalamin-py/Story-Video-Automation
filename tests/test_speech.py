@@ -34,3 +34,16 @@ def test_normalization_cache_and_duration(tmp_path):
         with pytest.raises(ValueError, match="Shorten the dialogue"):
             narration(scene, config, tmp_path, 0.5)
         call.assert_called_once()
+
+
+def test_rate_limited_narration_keeps_backup_choice(tmp_path):
+    from speech import SpeechRateLimited, routed_narration
+
+    primary = ("openai", "primary-model", "primary-voice", "key-one")
+    backup = ("elevenlabs", "backup-model", "backup-voice", "key-two")
+    expected = tmp_path / "audio.wav"
+    with patch("speech.narration", side_effect=[SpeechRateLimited(), expected, expected]) as call:
+        for _ in range(2):
+            assert routed_narration({}, (primary, backup), tmp_path, 3, 1) == expected
+    assert [item.args[1] for item in call.call_args_list] == [primary, backup, backup]
+    assert "key-two" not in (tmp_path / "scene-01-voice.json").read_text()

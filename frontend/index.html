@@ -25,7 +25,9 @@ button{border:0;border-radius:8px;background:#bcb1ff;color:#17122e;font:600 14px
 <label><input type="checkbox" name="demo" checked> Demo render</label>
 <button type="submit">Queue video</button>
 </form></section>
-<section><h2>Job queue</h2><button id="refresh">Refresh jobs</button><ul id="jobs"></ul><video id="preview" controls hidden></video></section>
+<section><h2>Job queue</h2><p id="activity"></p>
+<label>Upload time (optional, local time) <input id="publish-time" type="datetime-local"></label>
+<label><input id="public-upload" type="checkbox"> Request public publication</label><button id="refresh">Refresh jobs</button><ul id="jobs"></ul><video id="preview" controls hidden></video></section>
 </main>
 <script>
 const token = document.querySelector('#token');
@@ -45,6 +47,10 @@ async function call(path, options = {}) {
 }
 async function refresh() {
   const rows = await (await call('/api/jobs')).json();
+  const activity = await (await call('/api/summary')).json();
+  const count = group => Object.values(group).reduce((sum, value) => sum + value, 0);
+  document.querySelector('#activity').textContent =
+    count(activity.jobs) + ' jobs · ' + count(activity.deliveries) + ' deliveries';
   const list = document.querySelector('#jobs');
   list.replaceChildren();
   for (const row of rows) {
@@ -69,8 +75,14 @@ async function refresh() {
           upload.textContent = existing ? platform + ': ' + existing.state : 'Upload to ' + platform;
           upload.disabled = Boolean(existing);
           upload.onclick = () => handle(async () => {
+            const publishTime = document.querySelector('#publish-time').value;
+            const publicUpload = document.querySelector('#public-upload').checked;
+            if (publicUpload && !window.confirm('Request public publication on ' + platform + '?')) return;
             await call('/api/jobs/' + row.id + '/deliveries', {
-              method: 'POST', body: JSON.stringify({platform, public: false})
+              method: 'POST', body: JSON.stringify({
+                platform, public: publicUpload,
+                publish_at: publishTime ? new Date(publishTime).toISOString() : null
+              })
             });
             await refresh();
           });

@@ -108,3 +108,15 @@ into fallback after an explicit HTTP 429 rejection at submission. Both
 providers must support the requested source format, audio and duration.
 The chosen provider is recorded per scene. Polling and ambiguous submission
 failures remain with the original provider for reconciliation.
+
+## Voice fallback and local scheduling
+
+Set TTS_FALLBACK_PROVIDER, TTS_FALLBACK_MODEL and TTS_FALLBACK_VOICE to opt
+into the other supported voice provider after an explicit HTTP 429 response.
+The fallback selection is persisted without credentials. Verify that both
+selected voices support the story language and fit the scene timing.
+
+The local dashboard accepts an optional publish time and sends it to the API
+as UTC. The worker submits due uploads while it is running. Platform
+processing can delay publication. The summary reports local job and
+delivery counts. Platform views and engagement require separate analytics.

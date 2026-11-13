@@ -4,9 +4,9 @@ from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from backend.jobs import ROOT, deliveries, enqueue, get_jobs, lookup, schedule_delivery, transition
+from backend.jobs import ROOT, deliveries, enqueue, get_jobs, lookup, schedule_delivery, summary, transition
 
 app = FastAPI(title="Story Video Studio", docs_url=None, redoc_url=None)
 
@@ -85,11 +85,12 @@ def preview(job_id: str, _: Admin):
 class Delivery(BaseModel):
     platform: Literal["youtube", "facebook"]
     public: bool = False
+    publish_at: AwareDatetime | None = None
 
 
 @app.post("/api/jobs/{job_id}/deliveries", status_code=202)
 def publish(job_id: str, delivery: Delivery, _: Admin):
-    if not schedule_delivery(job_id, delivery.platform, delivery.public):
+    if not schedule_delivery(job_id, delivery.platform, delivery.public, delivery.publish_at):
         raise HTTPException(409, "The real video must be ready and have no existing delivery for this platform.")
     return {"state": "PENDING"}
 
@@ -97,3 +98,8 @@ def publish(job_id: str, delivery: Delivery, _: Admin):
 @app.get("/api/jobs/{job_id}/deliveries")
 def delivery_status(job_id: str, _: Admin):
     return deliveries(job_id)
+
+
+@app.get("/api/summary")
+def activity_summary(_: Admin):
+    return summary()

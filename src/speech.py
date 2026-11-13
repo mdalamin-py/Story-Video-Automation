@@ -18,8 +18,40 @@ def settings():
         return None
     if provider not in {"openai", "elevenlabs"}:
         raise ValueError("TTS_PROVIDER must be openai or elevenlabs.")
+    primary = provider_settings(provider, "TTS")
+    backup = os.environ.get("TTS_FALLBACK_PROVIDER", "").strip()
+    if backup and (backup == provider or backup not in {"openai", "elevenlabs"}):
+        raise ValueError("TTS fallback must be a different supported speech provider.")
+    return primary, provider_settings(backup, "TTS_FALLBACK") if backup else None
+
+
+def provider_settings(provider, prefix):
     key = required("OPENAI_API_KEY" if provider == "openai" else "ELEVENLABS_API_KEY")
-    return provider, required("TTS_MODEL"), required("TTS_VOICE"), key
+    return provider, required(prefix + "_MODEL"), required(prefix + "_VOICE"), key
+
+
+class SpeechRateLimited(RuntimeError):
+    pass
+
+
+def routed_narration(scene, settings, folder, seconds, number):
+    primary, backup = settings
+    route = folder / f"scene-{number:02}-voice.json"
+    if route.exists():
+        selection = json.loads(route.read_text(encoding="utf-8"))
+        if not backup or selection != list(backup[:3]):
+            raise ValueError("Restore the recorded speech fallback settings to resume.")
+        return narration(scene, backup, folder, seconds)
+    try:
+        return narration(scene, primary, folder, seconds)
+    except SpeechRateLimited:
+        if not backup:
+            raise
+        from providers import write_json
+
+        print(f"Scene {number}: {primary[0]} rejected narration (429); using {backup[0]}.", flush=True)
+        write_json(route, list(backup[:3]))
+        return narration(scene, backup, folder, seconds)
 
 
 def speech_request(provider, model, voice, key, text):
@@ -56,6 +88,8 @@ def narration(scene, config, folder, seconds):
                                 raise ValueError("TTS response exceeded 20 MiB.")
                             out.write(chunk)
             except HTTPError as exc:
+                if exc.code == 429:
+                    raise SpeechRateLimited(f"{provider} rejected speech generation (429).") from None
                 raise RuntimeError(f"{provider} speech request returned HTTP {exc.code}.") from None
             subprocess.run([ffmpeg(), "-nostdin", "-v", "error", "-y", "-i", str(raw),
                             "-vn", "-af", "loudnorm=I=-16:TP=-2:LRA=7", "-ar", "48000",

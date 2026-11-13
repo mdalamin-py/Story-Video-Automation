@@ -6,6 +6,7 @@ import sqlite3
 import subprocess
 import sys
 from contextlib import closing
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -25,6 +26,10 @@ def connect():
     db.execute("""CREATE TABLE IF NOT EXISTS deliveries (
         job_id TEXT NOT NULL, platform TEXT NOT NULL, public INTEGER NOT NULL,
         state TEXT NOT NULL, error TEXT, PRIMARY KEY(job_id, platform)
+    )""")
+    db.execute("""CREATE TABLE IF NOT EXISTS delivery_schedule (
+        job_id TEXT NOT NULL, platform TEXT NOT NULL, publish_at TEXT NOT NULL,
+        PRIMARY KEY(job_id, platform)
     )""")
     return db
 
@@ -97,26 +102,35 @@ def produce(row):
         brief_path.unlink(missing_ok=True)
 
 
-def schedule_delivery(job_id, platform, public):
+def schedule_delivery(job_id, platform, public, publish_at=None):
     with closing(connect()) as db:
+        db.execute("BEGIN IMMEDIATE")
         result = db.execute("""INSERT OR IGNORE INTO deliveries
             SELECT id, ?, ?, 'PENDING', NULL FROM jobs
             WHERE id=? AND demo=0 AND state='READY_TO_PUBLISH'""",
             (platform, int(public), job_id))
-        return result.rowcount == 1
+        created = result.rowcount == 1
+        if created and publish_at:
+            db.execute("INSERT INTO delivery_schedule VALUES(?,?,?)",
+                       (job_id, platform, publish_at.astimezone(UTC).isoformat()))
+        db.commit()
+        return created
 
 
 def deliveries(job_id):
     with closing(connect()) as db:
         return [dict(row) for row in db.execute(
-            "SELECT platform, public, state, error FROM deliveries WHERE job_id=?", (job_id,))]
+            """SELECT d.platform, d.public, d.state, d.error, s.publish_at FROM deliveries d
+            LEFT JOIN delivery_schedule s USING(job_id, platform) WHERE d.job_id=?""", (job_id,))]
 
 
 def deliver_one():
     with closing(connect()) as db:
         task = db.execute("""UPDATE deliveries SET state='PUBLISHING' WHERE rowid=(
-            SELECT rowid FROM deliveries WHERE state='PENDING' ORDER BY rowid LIMIT 1
-        ) RETURNING *""").fetchone()
+            SELECT d.rowid FROM deliveries d LEFT JOIN delivery_schedule s USING(job_id, platform)
+            WHERE d.state='PENDING' AND (s.publish_at IS NULL OR s.publish_at <= ?)
+            ORDER BY d.rowid LIMIT 1
+        ) RETURNING *""", (datetime.now(UTC).isoformat(),)).fetchone()
         if task is None:
             return False
         row = lookup(task["job_id"])
@@ -131,3 +145,10 @@ def deliver_one():
         db.execute("UPDATE deliveries SET state=?,error=? WHERE job_id=? AND platform=?",
                    (state, error, task["job_id"], task["platform"]))
         return True
+
+def summary():
+    with closing(connect()) as db:
+        result = {}
+        for table in ("jobs", "deliveries"):
+            result[table] = dict(db.execute(f"SELECT state,count(*) FROM {table} GROUP BY state").fetchall())
+        return result
