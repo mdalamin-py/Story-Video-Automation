@@ -11,6 +11,7 @@ from pathlib import Path
 from media import VERTICAL_SIZES, ffmpeg, render
 from providers import STORY_INSTRUCTIONS, publish_facebook, publish_youtube, required, story_plan, write_json
 
+from image_provider import image_scene, image_settings
 from speech import routed_narration, settings as speech_settings
 from video_providers import video_route
 
@@ -134,20 +135,27 @@ def process(folder, args):
         else:
             ffmpeg()
             voice = None if demo else speech_settings()
+            illustration = None if demo else image_settings()
             video_brief = {**brief, "audio": False} if voice else brief
             generation_inputs = {key: video_brief[key] for key in ("resolution", "style", "audio", "seconds_per_scene")}
             generation_inputs["scenes"] = [
                 {key: scene[key] for key in ("visual_prompt", "dialogue")} for scene in plan["scenes"]
             ]
             video_provider = os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", "")
-            if not demo:
+            if illustration:
+                generation_inputs["provider"] = "openai-image"
+                generation_inputs["image_model"] = illustration[0]
+
+                def adapter(scene, video_brief, folder, number):
+                    return image_scene(scene, video_brief, folder, number, illustration)
+            elif not demo:
                 adapter = video_route(video_provider, video_brief)
                 if video_provider != "muse-video.com":
                     generation_inputs["provider"] = video_provider
             asset_key = hashlib.sha256(json.dumps(generation_inputs, sort_keys=True).encode()).hexdigest()
             assets = folder / "assets" / asset_key
             assets.mkdir(parents=True, exist_ok=True)
-            if not demo and video_provider == "muse-video.com":
+            if not demo and not illustration and video_provider == "muse-video.com":
                 credits = brief["scene_count"] * brief["seconds_per_scene"] * (
                     75 if brief["resolution"] == "1080p" else 40)
                 print(f"Estimated Muse credits: {credits}", flush=True)
@@ -226,7 +234,8 @@ def main():
         brief = load(args.brief)
         validate(brief)
         video_brief = {**brief, "audio": False} if speech_settings() else brief
-        video_route(os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", ""), video_brief)
+        if not image_settings():
+            video_route(os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", ""), video_brief)
         ffmpeg()
         args.demo = False
         folder = draft(args)

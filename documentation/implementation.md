@@ -129,3 +129,14 @@ values are captured at enqueue time. Unset values use the worker's current
 environment. Configure a story router before setting a budget; the lower of
 the router cap and dashboard cap applies. Voice models and credentials
 remain in the worker's configuration.
+
+## Illustrated video mode
+
+Set IMAGE_PROVIDER=openai and IMAGE_MODEL to a GPT Image model available
+to your account, with OPENAI_API_KEY set in the local environment. This mode
+renders scene illustrations as still clips with captions and optional TTS.
+The dashboard can select illustrated mode for new jobs. Generated PNGs are
+cached by prompt, model, and format within the render asset directory.
+A submission whose outcome is unknown requires manual reconciliation.
+
+- [OpenAI Images API](https://developers.openai.com/api/reference/resources/images/methods/generate)
