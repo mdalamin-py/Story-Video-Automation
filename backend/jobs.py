@@ -2,7 +2,6 @@
 import json
 import os
 import re
-import sqlite3
 import subprocess
 import sys
 from contextlib import closing
@@ -10,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from backend.database import database
 from backend.preferences import read_preferences
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,12 +18,13 @@ DATA = Path(os.environ.get("STUDIO_DATA_DIR", ROOT / "runs" / "studio")).resolve
 
 def connect():
     DATA.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(DATA / "jobs.sqlite3", timeout=20, isolation_level=None)
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA journal_mode=WAL")
+    db = database(DATA / "jobs.sqlite3")
+    db.execute("BEGIN")
+    if os.environ.get("STUDIO_DATABASE_URL"):
+        db.execute("SELECT pg_advisory_xact_lock(78124061)")
     db.execute("""CREATE TABLE IF NOT EXISTS jobs (
         id TEXT PRIMARY KEY, demo INTEGER NOT NULL, brief TEXT NOT NULL,
-        state TEXT NOT NULL, run TEXT, error TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP
+        state TEXT NOT NULL, run TEXT, error TEXT, created TEXT DEFAULT (CAST(CURRENT_TIMESTAMP AS TEXT))
     )""")
     db.execute("""CREATE TABLE IF NOT EXISTS deliveries (
         job_id TEXT NOT NULL, platform TEXT NOT NULL, public INTEGER NOT NULL,
@@ -35,13 +36,14 @@ def connect():
     )""")
     db.execute("CREATE TABLE IF NOT EXISTS preferences (id INTEGER PRIMARY KEY, value TEXT NOT NULL)")
     db.execute("CREATE TABLE IF NOT EXISTS job_preferences (id TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    db.commit()
     return db
 
 
 def enqueue(brief, demo):
     job_id = uuid4().hex
     with closing(connect()) as db:
-        db.execute("BEGIN IMMEDIATE")
+        db.execute("BEGIN")
         preferences = read_preferences(db).environment()
         db.execute("INSERT INTO job_preferences VALUES(?,?)", (job_id, json.dumps(preferences)))
         db.execute("INSERT INTO jobs(id,demo,brief,state) VALUES(?,?,?,'PENDING')",
@@ -53,13 +55,13 @@ def enqueue(brief, demo):
 def get_jobs():
     with closing(connect()) as db:
         return [dict(row) for row in db.execute(
-            "SELECT id,demo,state,run,error,created FROM jobs ORDER BY rowid DESC LIMIT 100")]
+            "SELECT id,demo,state,run,error,created FROM jobs ORDER BY created DESC, id DESC LIMIT 100")]
 
 
 def claim():
     with closing(connect()) as db:
         row = db.execute("""UPDATE jobs SET state='RUNNING'
-            WHERE id=(SELECT id FROM jobs WHERE state='PENDING' ORDER BY rowid LIMIT 1)
+            WHERE state='PENDING' AND id=(SELECT id FROM jobs WHERE state='PENDING' ORDER BY created,id LIMIT 1)
             RETURNING *""").fetchone()
         return dict(row) if row else None
 
@@ -96,7 +98,7 @@ def produce(row):
             arguments.append("--demo")
         with closing(connect()) as db:
             preferences = db.execute("SELECT value FROM job_preferences WHERE id=?", (row["id"],)).fetchone()
-        overrides = json.loads(preferences[0]) if preferences else {}
+        overrides = json.loads(preferences["value"]) if preferences else {}
         output = invoke(*arguments, overrides=overrides)
         match = re.search(r"^Run: ([0-9-]+)$", output, flags=re.M)
         if not match:
@@ -115,10 +117,11 @@ def produce(row):
 
 def schedule_delivery(job_id, platform, public, publish_at=None):
     with closing(connect()) as db:
-        db.execute("BEGIN IMMEDIATE")
-        result = db.execute("""INSERT OR IGNORE INTO deliveries
+        db.execute("BEGIN")
+        result = db.execute("""INSERT INTO deliveries (job_id, platform, public, state, error)
             SELECT id, ?, ?, 'PENDING', NULL FROM jobs
-            WHERE id=? AND demo=0 AND state='READY_TO_PUBLISH'""",
+            WHERE id=? AND demo=0 AND state='READY_TO_PUBLISH'
+            ON CONFLICT(job_id,platform) DO NOTHING""",
             (platform, int(public), job_id))
         created = result.rowcount == 1
         if created and publish_at:
@@ -137,10 +140,10 @@ def deliveries(job_id):
 
 def deliver_one():
     with closing(connect()) as db:
-        task = db.execute("""UPDATE deliveries SET state='PUBLISHING' WHERE rowid=(
-            SELECT d.rowid FROM deliveries d LEFT JOIN delivery_schedule s USING(job_id, platform)
+        task = db.execute("""UPDATE deliveries SET state='PUBLISHING' WHERE state='PENDING' AND (job_id,platform)=(
+            SELECT d.job_id,d.platform FROM deliveries d LEFT JOIN delivery_schedule s USING(job_id, platform)
             WHERE d.state='PENDING' AND (s.publish_at IS NULL OR s.publish_at <= ?)
-            ORDER BY d.rowid LIMIT 1
+            ORDER BY COALESCE(s.publish_at, ''), d.job_id,d.platform LIMIT 1
         ) RETURNING *""", (datetime.now(UTC).isoformat(),)).fetchone()
         if task is None:
             return False
@@ -161,5 +164,6 @@ def summary():
     with closing(connect()) as db:
         result = {}
         for table in ("jobs", "deliveries"):
-            result[table] = dict(db.execute(f"SELECT state,count(*) FROM {table} GROUP BY state").fetchall())
+            result[table] = {row["state"]: row["total"] for row in db.execute(
+                f"SELECT state,count(*) AS total FROM {table} GROUP BY state").fetchall()}
         return result

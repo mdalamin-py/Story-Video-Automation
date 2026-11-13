@@ -22,7 +22,7 @@ class Preferences(BaseModel):
 
 def read_preferences(db):
     row = db.execute("SELECT value FROM preferences WHERE id=1").fetchone()
-    return Preferences.model_validate_json(row[0]) if row else Preferences()
+    return Preferences.model_validate_json(row["value"]) if row else Preferences()
 
 
 def get_preferences():

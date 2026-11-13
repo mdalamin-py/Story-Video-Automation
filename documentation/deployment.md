@@ -25,5 +25,32 @@ and confirm that jobs and previews are visible before enabling uploads.
 Check for interrupted paid requests and submissions with the provider before
 resubmitting them.
 
-This deployment uses the SQLite worker and a single Docker host. The
-distributed PostgreSQL, Redis and Celery deployment remains to be implemented.
+This deployment uses the SQLite worker and a single Docker host. See the distributed deployment below for the PostgreSQL option.
+
+
+## PostgreSQL, Redis, and Celery
+
+Set STUDIO_DB_PASSWORD in the local .env. Set STUDIO_DATABASE_URL to a
+PostgreSQL connection URI such as postgresql://studio:PASSWORD@db:5432/studio
+with the same password URL-encoded. Start the services with:
+
+    docker compose -f compose.yaml -f compose.distributed.yaml up --build -d
+
+The application creates the required tables on first connection. Use a new
+database or migrate existing SQLite records separately. Redis is an internal
+Celery broker. Run one beat instance to dispatch jobs and due uploads.
+The database claim guards prevent a duplicate dispatch from starting the
+same row twice. Interrupted provider requests still require reconciliation.
+Keep the media volume on the same Docker host as workers and the API.
+
+## Next.js dashboard
+
+From the project root, run npm ci, npm run build, and npm run start.
+The dashboard runs on port 3000 and proxies API requests to port 8765.
+Set STUDIO_API_URL before the build if FastAPI uses a different address.
+The admin token stays in page memory. The classic dashboard remains on
+the FastAPI port.
+
+The Next.js build and local SQLite test suite were verified on Windows.
+Run Compose and verify PostgreSQL, Redis, Celery, and a demo render on a
+Docker host before deploying with live API credentials.

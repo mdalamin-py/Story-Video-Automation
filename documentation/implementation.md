@@ -10,8 +10,10 @@
 - [x] Single-host container configuration (container execution pending).
 - [ ] Additional image providers and centralized multi-category routing.
 - [ ] Add PostgreSQL schema, encrypted credential management, API authentication and provider settings.
-- [ ] Add Redis/Celery workers, persistent orchestration, reconciliation and S3 asset storage.
-- [ ] Add Next.js dashboard, provider controls, monitoring and approval workflow.
+- [x] Redis/Celery dispatch and PostgreSQL queue implementation, pending infrastructure acceptance.
+- [ ] Full workflow reconciliation and S3 asset storage.
+- [x] Next.js dashboard, provider defaults, preview and approval-based delivery.
+- [ ] Production monitoring and full provider administration.
 - [ ] Extend media production and official social integrations.
 - [ ] Run infrastructure, live provider and publishing acceptance tests.
 

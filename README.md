@@ -80,3 +80,10 @@ spending credits, or uploading videos. A successful check does not verify
 token validity or platform permissions. For a live trial, render and review
 the preview, then use the upload command without --public to submit privately
 to YouTube or as a Facebook draft.
+
+## Dashboard and distributed deployment
+
+The Next.js dashboard supports job submission, previews, provider defaults,
+scheduled deliveries, and on-demand engagement. PostgreSQL and Redis/Celery
+are available through the distributed Compose configuration. See
+[deployment instructions](documentation/deployment.md) for setup and acceptance checks.
