@@ -30,7 +30,7 @@ def timestamp(seconds):
     return f"00:{seconds // 60:02}:{seconds % 60:02},000"
 
 
-def render(clips, scenes, brief, folder, demo=False):
+def render(clips, scenes, brief, folder, demo=False, voices=None):
     width, height = VERTICAL_SIZES[brief.get("export_resolution", brief["resolution"])]
     source_width, source_height = VERTICAL_SIZES[brief["resolution"]]
     seconds = brief["seconds_per_scene"]
@@ -53,6 +53,9 @@ def render(clips, scenes, brief, folder, demo=False):
         probe = subprocess.run([ffmpeg(), "-hide_banner", "-i", str(clip)],
                                capture_output=True, text=True)
         audio = "0:a:0" if brief["audio"] and "Audio:" in probe.stderr else "1:a:0"
+        if voices and voices[index]:
+            args.extend(["-i", str(voices[index])])
+            audio = "2:a:0"
         run(*args, "-map", "0:v:0", "-map", audio, "-af", "apad", "-t", str(seconds),
             "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease:flags=lanczos,"
                    f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,"

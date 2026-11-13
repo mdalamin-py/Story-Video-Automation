@@ -87,3 +87,18 @@ A paid Runway submission is journaled before the request. A known task ID can
 be polled again. A submission with an unknown outcome requires reconciliation.
 
 - [Runway API reference](https://docs.dev.runwayml.com/api/)
+
+## Optional scene narration
+
+Set TTS_PROVIDER to openai or elevenlabs. Set TTS_MODEL and TTS_VOICE to a
+model and voice available to your account. Set OPENAI_API_KEY for OpenAI,
+or ELEVENLABS_API_KEY for ElevenLabs. Keep these settings in the local .env.
+
+The renderer uses each scene's dialogue as narration and requests silent
+source clips. It normalizes and caches the narration. Short narration is
+padded to the scene length. If narration exceeds the scene length, shorten
+the dialogue or extend the scene before trying again. Check the selected
+model's language support and review pronunciation in the preview.
+
+- [OpenAI speech API](https://developers.openai.com/api/reference/resources/audio/subresources/speech/methods/create)
+- [ElevenLabs speech API](https://elevenlabs.io/docs/api-reference/text-to-speech/convert)

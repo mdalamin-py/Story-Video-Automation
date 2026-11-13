@@ -11,6 +11,7 @@ from pathlib import Path
 from media import VERTICAL_SIZES, ffmpeg, render
 from providers import STORY_INSTRUCTIONS, publish_facebook, publish_youtube, required, story_plan, write_json
 
+from speech import narration, settings as speech_settings
 from video_providers import select_video_provider
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -130,13 +131,15 @@ def process(folder, args):
                 temporary.replace(video)
         else:
             ffmpeg()
-            generation_inputs = {key: brief[key] for key in ("resolution", "style", "audio", "seconds_per_scene")}
+            voice = None if demo else speech_settings()
+            video_brief = {**brief, "audio": False} if voice else brief
+            generation_inputs = {key: video_brief[key] for key in ("resolution", "style", "audio", "seconds_per_scene")}
             generation_inputs["scenes"] = [
                 {key: scene[key] for key in ("visual_prompt", "dialogue")} for scene in plan["scenes"]
             ]
             video_provider = os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", "")
             if not demo:
-                adapter = select_video_provider(video_provider, brief)
+                adapter = select_video_provider(video_provider, video_brief)
                 if video_provider != "muse-video.com":
                     generation_inputs["provider"] = video_provider
             asset_key = hashlib.sha256(json.dumps(generation_inputs, sort_keys=True).encode()).hexdigest()
@@ -149,11 +152,17 @@ def process(folder, args):
             output = brief.get("export_resolution", brief["resolution"])
             if VERTICAL_SIZES[output][0] > VERTICAL_SIZES[brief["resolution"]][0]:
                 print(f"Upscaling {brief['resolution']} source to {output}.", flush=True)
+            voices = None
+            if voice:
+                voice_folder = folder / "narration"
+                voice_folder.mkdir(exist_ok=True)
+                voices = [narration(scene, voice, voice_folder, brief["seconds_per_scene"])
+                          for scene in plan["scenes"]]
             clips = [] if demo else [
-                adapter(scene, brief, assets, number)
+                adapter(scene, video_brief, assets, number)
                 for number, scene in enumerate(plan["scenes"], 1)
             ]
-            render(clips, plan["scenes"], brief, folder, demo)
+            render(clips, plan["scenes"], video_brief, folder, demo, voices)
         write_json(render_state, {"fingerprint": render_fingerprint(brief_path, plan, video)})
         print(f"Preview: {video}")
         return
@@ -214,7 +223,8 @@ def main():
             raise ValueError("Missing settings in .env: " + ", ".join(missing))
         brief = load(args.brief)
         validate(brief)
-        select_video_provider(os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", ""), brief)
+        video_brief = {**brief, "audio": False} if speech_settings() else brief
+        select_video_provider(os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", ""), video_brief)
         ffmpeg()
         args.demo = False
         folder = draft(args)
