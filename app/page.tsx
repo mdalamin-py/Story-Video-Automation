@@ -236,6 +236,19 @@ export default function Studio() {
         setReport("ElevenLabs · " + result.status + usage +
           (overage ? " · Current overage " + overage.currency + " " + overage.amount : ""));
       })}>Check ElevenLabs subscription</button>
+      {(["runway", "muse", "vertex"] as const).map(provider => <button key={provider} className="secondary"
+        disabled={!connected} onClick={() => void act(async () => {
+          const result = await (await api("provider-health/" + provider)).json() as {
+            provider: string; status: string; latency_ms?: number; credit_balance?: number;
+            task_status?: string; task_credits?: number;
+          };
+          setReport([
+            result.provider, result.status, result.latency_ms == null ? "" : result.latency_ms + " ms",
+            result.credit_balance == null ? "" : result.credit_balance + " credits remaining",
+            result.task_status ? "Task " + result.task_status : "",
+            result.task_credits == null ? "" : result.task_credits + " credits for this task",
+          ].filter(Boolean).join(" · "));
+        })}>Check {{runway: "Runway", muse: "Muse Video", vertex: "Vertex AI"}[provider]}</button>)}
       {report && <p role="status">{report}</p>}
       {usage.length > 0 && <ul aria-label="Provider request history">{usage.map(row => <li key={row.host}>
         <strong>{row.host}</strong>

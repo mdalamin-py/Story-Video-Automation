@@ -45,3 +45,26 @@ def test_elevenlabs_exposes_quota_and_overage_only(monkeypatch):
     assert result["characters_used"] == 50
     assert result["current_overage"] == {"amount": "1.25", "currency": "USD"}
     assert "open_invoices" not in result
+
+
+def test_media_account_reports_read_only_data(monkeypatch):
+    from backend.provider_reports import media_account
+
+    monkeypatch.setenv("RUNWAY_API_KEY", "test")
+    with patch("backend.provider_reports.read_json", return_value={"creditBalance": 45}) as read:
+        assert media_account("runway")["credit_balance"] == 45
+        assert read.call_args.kwargs["extra_headers"] == {"X-Runway-Version": "2024-11-06"}
+
+    monkeypatch.setenv("MUSE_API_KEY", "test")
+    monkeypatch.setenv("MUSE_HEALTH_TASK_ID", "existing")
+    with patch("backend.provider_reports.read_json", return_value={
+        "code": 200, "data": {"task_id": "existing", "status": "SUCCESS", "consumed_credits": 12}
+    }) as read:
+        assert media_account("muse")["task_credits"] == 12
+        assert read.call_args.args[0].endswith("status?task_id=existing")
+
+    monkeypatch.setenv("VERTEX_ACCESS_TOKEN", "test")
+    monkeypatch.setenv("VERTEX_REGION", "us-central1")
+    monkeypatch.setenv("IMAGE_MODEL", "imagen")
+    with patch("backend.provider_reports.read_json", return_value={"name": "publishers/google/models/imagen"}):
+        assert media_account("vertex")["status"] == "reachable"

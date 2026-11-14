@@ -208,3 +208,10 @@ def elevenlabs_health(_: Admin):
     from backend.provider_reports import elevenlabs_subscription
 
     return elevenlabs_subscription()
+
+
+@app.get("/api/provider-health/{provider}")
+def media_health(provider: Literal["runway", "muse", "vertex"], _: Admin):
+    from backend.provider_reports import media_account
+
+    return media_account(provider)

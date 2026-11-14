@@ -221,3 +221,14 @@ and reported overage when available. Overage is separate from the
 subscription fee and does not represent the total invoice.
 
 - [ElevenLabs subscription endpoint](https://elevenlabs.io/docs/api-reference/user/subscription/get)
+
+### Media provider connection tests
+
+Runway reads the organization credit balance. Muse reads the status and
+reported credits of a prior task configured as MUSE_HEALTH_TASK_ID.
+Vertex AI reads the server-configured Imagen model's publisher metadata.
+The Vertex check does not establish permission to generate or report spend.
+
+- [Runway organization API](https://github.com/runwayml/sdk-python/blob/main/src/runwayml/resources/organization.py)
+- [Muse task status API](https://muse-video.com/docs/api)
+- [Vertex publisher models](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/rest/v1/publishers.models/get)

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from time import monotonic
@@ -7,9 +8,9 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
-def read_json(url, token, *, key_header=False):
+def read_json(url, token, *, key_header=False, extra_headers=None):
     headers = {"xi-api-key": token} if key_header else {"Authorization": "Bearer " + token}
-    with urlopen(Request(url, headers=headers), timeout=8) as response:
+    with urlopen(Request(url, headers={**headers, **(extra_headers or {})}), timeout=8) as response:
         return json.load(response)
 
 
@@ -82,4 +83,60 @@ def elevenlabs_subscription():
     except InvalidOperation:
         # Invalid optional overage data does not invalidate the quota.
         pass
+    return {**report, "latency_ms": round((monotonic() - started) * 1000)}
+
+
+
+def media_account(provider):
+    settings = {
+        "runway": ("Runway", "RUNWAY_API_KEY"),
+        "muse": ("Muse Video", "MUSE_API_KEY"),
+        "vertex": ("Vertex AI", "VERTEX_ACCESS_TOKEN"),
+    }
+    name, key_name = settings[provider]
+    key = os.environ.get(key_name, "").strip()
+    report = {"provider": name, "status": "not configured"}
+    if not key:
+        return report
+
+    headers = {}
+    if provider == "runway":
+        url = "https://api.dev.runwayml.com/v1/organization"
+        headers = {"X-Runway-Version": "2024-11-06"}
+    elif provider == "muse":
+        task = os.environ.get("MUSE_HEALTH_TASK_ID", "").strip()
+        if not task:
+            return {**report, "status": "set an existing task ID to check"}
+        url = "https://muse-video.com/api/v1/status?" + urlencode({"task_id": task})
+    else:
+        region = os.environ.get("VERTEX_REGION", "").strip()
+        model = os.environ.get("IMAGE_MODEL", "").strip()
+        if not all(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", item) for item in (region, model)):
+            return {**report, "status": "set a Vertex region and Imagen model"}
+        url = f"https://{region}-aiplatform.googleapis.com/v1/publishers/google/models/{model}"
+
+    started = monotonic()
+    try:
+        result = read_json(url, key, extra_headers=headers) if headers else read_json(url, key)
+        if provider == "runway":
+            balance = result["creditBalance"]
+            if type(balance) is not int:
+                raise ValueError("Invalid credit balance.")
+            report["credit_balance"] = balance
+        elif provider == "muse":
+            task_data = result["data"]
+            if result.get("code") != 200 or task_data.get("task_id") != task:
+                raise ValueError("Unexpected task response.")
+            state = task_data["status"]
+            if state not in {"IN_PROGRESS", "SUCCESS", "FAILED"}:
+                raise ValueError("Unexpected task state.")
+            report["task_status"] = state
+            credits = task_data.get("consumed_credits")
+            if type(credits) is int and credits >= 0:
+                report["task_credits"] = credits
+        elif not isinstance(result["name"], str) or not result["name"]:
+            raise ValueError("Unexpected publisher model.")
+        report["status"] = "reachable"
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        report["status"] = "request failed"
     return {**report, "latency_ms": round((monotonic() - started) * 1000)}
