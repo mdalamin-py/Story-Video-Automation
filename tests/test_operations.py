@@ -71,4 +71,7 @@ def test_provider_usage_retains_only_counts(tmp_path, monkeypatch):
         "host": "provider.example", "requests": 2, "failures": 1,
         "average_ms": 150, "reported_tokens": 17,
     }]
+    result = aggregate(path, include_latest=True)[0]
+    assert result["last_success"] is False
+    assert result["last_observed_at"].endswith("+00:00")
     assert b"hidden" not in path.read_bytes()

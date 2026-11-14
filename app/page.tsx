@@ -9,7 +9,7 @@ type Delivery = { platform: string; state: string; publish_at: string | null };
 export default function Studio() {
   const [view, setView] = useState<"queue" | "create" | "providers">("queue");
   const [filter, setFilter] = useState("all");
-  const [usage, setUsage] = useState<{host: string; requests: number; failures: number; average_ms: number; reported_tokens: number | null}[]>([]);
+  const [usage, setUsage] = useState<{host: string; requests: number; failures: number; average_ms: number; reported_tokens: number | null; last_success: boolean | null; last_observed_at: string | null}[]>([]);
   const [connected, setConnected] = useState(false);
   const [token, setToken] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -215,6 +215,8 @@ export default function Studio() {
       {usage.length > 0 && <ul aria-label="Provider request history">{usage.map(row => <li key={row.host}>
         <strong>{row.host}</strong>
         <span>{row.requests} requests · {row.failures} failed · {row.average_ms} ms average</span>
+        <span>{row.last_observed_at ? (row.last_success ? "Last request succeeded" : "Last request failed") + " · " +
+          new Date(row.last_observed_at).toLocaleString() : "Last request time unavailable"}</span>
         <span>{row.reported_tokens ?? "Unavailable"} reported tokens</span>
       </li>)}</ul>}
       <form onSubmit={saveProviders}>

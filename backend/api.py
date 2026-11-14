@@ -179,4 +179,4 @@ def provider_usage(_: Admin):
     from backend import jobs as job_store
     from src.usage import aggregate
 
-    return aggregate(job_store.DATA / "usage.sqlite3")
+    return aggregate(job_store.DATA / "usage.sqlite3", include_latest=True)
