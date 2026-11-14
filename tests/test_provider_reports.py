@@ -29,3 +29,19 @@ def test_openai_cost_totals_across_pages(monkeypatch):
     assert result["totals"] == {"USD": "0.3"}
     assert result["scope"] == "project"
     assert "page=second" in read.call_args.args[0]
+
+
+def test_elevenlabs_exposes_quota_and_overage_only(monkeypatch):
+    from backend.provider_reports import elevenlabs_subscription
+
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "test")
+    payload = {"character_count": 50, "character_limit": 100,
+               "current_overage": {"amount": "1.25", "currency": "usd"},
+               "open_invoices": [{"private": True}]}
+    with patch("backend.provider_reports.read_json", return_value=payload) as read:
+        result = elevenlabs_subscription()
+    read.assert_called_once_with("https://api.elevenlabs.io/v1/user/subscription", "test", key_header=True)
+    assert result["status"] == "reachable"
+    assert result["characters_used"] == 50
+    assert result["current_overage"] == {"amount": "1.25", "currency": "USD"}
+    assert "open_invoices" not in result

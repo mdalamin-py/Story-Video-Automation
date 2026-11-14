@@ -211,3 +211,13 @@ request counters. Other vendors' account costs require vendor-specific
 billing integrations. Connection and cost controls are optional for demos.
 
 - [OpenAI Costs API](https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/costs)
+
+### ElevenLabs subscription
+
+Use Check ElevenLabs subscription in Providers. The read-only request
+requires the server's ELEVENLABS_API_KEY with permission to read the
+subscription. It displays current-period character usage, the quota,
+and reported overage when available. Overage is separate from the
+subscription fee and does not represent the total invoice.
+
+- [ElevenLabs subscription endpoint](https://elevenlabs.io/docs/api-reference/user/subscription/get)

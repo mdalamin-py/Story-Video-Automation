@@ -1,14 +1,15 @@
 import json
 import os
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from time import monotonic
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
-def read_json(url, token):
-    with urlopen(Request(url, headers={"Authorization": "Bearer " + token}), timeout=8) as response:
+def read_json(url, token, *, key_header=False):
+    headers = {"xi-api-key": token} if key_header else {"Authorization": "Bearer " + token}
+    with urlopen(Request(url, headers=headers), timeout=8) as response:
         return json.load(response)
 
 
@@ -56,3 +57,29 @@ def openai_costs():
         cursors.add(cursor)
         params["page"] = cursor
     raise ValueError("Cost pagination exceeded the supported limit.")
+
+
+def elevenlabs_subscription():
+    key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    if not key:
+        return {"provider": "ElevenLabs", "status": "not configured"}
+    started = monotonic()
+    report = {"provider": "ElevenLabs"}
+    try:
+        subscription = read_json("https://api.elevenlabs.io/v1/user/subscription", key, key_header=True)
+        used, limit = subscription["character_count"], subscription["character_limit"]
+        if any(type(count) is not int or count < 0 for count in (used, limit)):
+            raise ValueError("Invalid character counts.")
+        report.update(status="reachable", characters_used=used, character_limit=limit)
+        overage = subscription.get("current_overage")
+        if isinstance(overage, dict):
+            amount = Decimal(str(overage.get("amount")))
+            currency = overage.get("currency")
+            if amount.is_finite() and isinstance(currency, str) and len(currency) == 3 and currency.isalpha():
+                report["current_overage"] = {"amount": str(amount), "currency": currency.upper()}
+    except (OSError, KeyError, TypeError, ValueError):
+        report["status"] = "request failed"
+    except InvalidOperation:
+        # Invalid optional overage data does not invalidate the quota.
+        pass
+    return {**report, "latency_ms": round((monotonic() - started) * 1000)}

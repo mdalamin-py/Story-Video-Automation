@@ -201,3 +201,10 @@ def provider_costs(_: Admin):
     if report is None:
         raise HTTPException(503, "Set OPENAI_ADMIN_KEY on the server to read OpenAI costs.")
     return report
+
+
+@app.get("/api/provider-health/elevenlabs")
+def elevenlabs_health(_: Admin):
+    from backend.provider_reports import elevenlabs_subscription
+
+    return elevenlabs_subscription()

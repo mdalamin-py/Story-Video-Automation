@@ -225,6 +225,17 @@ export default function Studio() {
         setReport("OpenAI " + result.scope + " costs since " + result.start.slice(0, 10) +
           " UTC · " + (totals || "No costs reported"));
       })}>Read OpenAI costs</button>
+      <button className="secondary" disabled={!connected} onClick={() => void act(async () => {
+        const result = await (await api("provider-health/elevenlabs")).json() as {
+          status: string; characters_used?: number; character_limit?: number;
+          current_overage?: {amount: string; currency: string};
+        };
+        const usage = result.characters_used == null ? "" :
+          " · " + result.characters_used.toLocaleString() + " / " + result.character_limit?.toLocaleString() + " characters";
+        const overage = result.current_overage;
+        setReport("ElevenLabs · " + result.status + usage +
+          (overage ? " · Current overage " + overage.currency + " " + overage.amount : ""));
+      })}>Check ElevenLabs subscription</button>
       {report && <p role="status">{report}</p>}
       {usage.length > 0 && <ul aria-label="Provider request history">{usage.map(row => <li key={row.host}>
         <strong>{row.host}</strong>
