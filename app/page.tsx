@@ -7,6 +7,9 @@ type Job = { id: string; demo: number; state: string; error: string | null };
 type Delivery = { platform: string; state: string; publish_at: string | null };
 
 export default function Studio() {
+  const [view, setView] = useState<"queue" | "create" | "providers">("queue");
+  const [filter, setFilter] = useState("all");
+  const [connected, setConnected] = useState(false);
   const [token, setToken] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [error, setError] = useState("");
@@ -33,6 +36,7 @@ export default function Studio() {
 
   const refresh = useCallback(async () => {
     setJobs(await (await api("jobs")).json());
+    setConnected(true);
     if (selected) setDeliveries(await (await api("jobs/" + selected.id + "/deliveries")).json());
   }, [api, selected]);
 
@@ -51,9 +55,16 @@ export default function Studio() {
       await api("jobs", { method: "POST", body: JSON.stringify({
         demo: data.get("demo") === "on",
         brief: { story: data.get("story"), final_changes: data.get("final_changes"),
-          language: data.get("language"), style: data.get("style"), export_resolution: data.get("export_resolution") },
+          language: data.get("language"), style: data.get("style"),
+          resolution: data.get("resolution"), export_resolution: data.get("export_resolution"),
+          scene_count: Number(data.get("scene_count")), seconds_per_scene: Number(data.get("seconds_per_scene")),
+          audio: data.get("audio") === "on", burn_captions: data.get("burn_captions") === "on",
+          made_for_kids: data.get("made_for_kids") === "on",
+          synthetic_disclosure: data.get("synthetic_disclosure") === "on" },
       }) });
       await refresh();
+      setView("queue");
+      setFilter("all");
     });
   }
 
@@ -87,37 +98,74 @@ export default function Studio() {
     });
   }
 
-  return <main>
-    <header><h1>Story Video Studio</h1><nav aria-label="Studio">
-      <a href="#create">Create</a><a href="#queue">Queue</a><a href="#providers">Providers</a>
-    </nav></header>
-    <div className="connection"><label>Admin token<input type="password" autoComplete="off" value={token}
-      onChange={event => {setToken(event.target.value); setJobs([]); setSelected(undefined); setPreview(""); setMetrics("");}} /></label>
-      <button onClick={() => void act(refresh)}>Connect</button></div>
+  const visibleJobs = jobs.filter(job => filter === "all" || job.state === filter);
+  const nav = [["queue", "Production"], ["create", "New video"], ["providers", "Providers"]] as const;
+
+  return <div className="workspace">
+    <aside className="sidebar">
+      <div className="brand"><span className="brand-mark" aria-hidden="true">▶</span> Story Video Studio</div>
+      <nav aria-label="Workspace">
+        {nav.map(([key, label]) => <button key={key} aria-current={view === key ? "page" : undefined}
+          onClick={() => setView(key)}>{label}</button>)}
+      </nav>
+      <span className="connection-indicator" data-connected={connected}>{connected ? "Connected" : "Offline"}</span>
+    </aside>
+    <main>
+    <header><h1>{nav.find(([key]) => key === view)?.[1]}</h1>
+      {view === "queue" && <button onClick={() => setView("create")}>New video</button>}
+    </header>
+    <form className="connection" onSubmit={event => {event.preventDefault(); void act(refresh);}}>
+      <label>Admin token<input type="password" autoComplete="off" value={token}
+        onChange={event => {
+          setToken(event.target.value); setConnected(false); setJobs([]); setSelected(undefined);
+          setPreview(""); setMetrics(""); setDeliveries([]);
+        }} /></label>
+      <button className="secondary" disabled={!token}>{connected ? "Refresh" : "Connect"}</button>
+    </form>
     <p role="alert">{error}</p>
-    <dl className="stats" aria-label="Recent jobs">
+    {view === "queue" && <dl className="stats" aria-label="Recent jobs">
       {[
         ["Queued", jobs.filter(job => job.state === "PENDING").length],
         ["Processing", jobs.filter(job => ["RUNNING", "RENDERING"].includes(job.state)).length],
         ["Ready", jobs.filter(job => job.state === "READY_TO_PUBLISH").length],
         ["Failed", jobs.filter(job => job.state === "FAILED").length],
       ].map(([label, count]) => <div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}
-    </dl>
-    <div className="columns">
-      <section id="create"><h2>New video</h2><form onSubmit={queue}>
+    </dl>}
+    <div className="studio-content">
+      <section id="create" hidden={view !== "create"}><h2>Video brief</h2><form onSubmit={queue}>
         <label>Story or idea<textarea name="story" required maxLength={24000} rows={5} /></label>
-        <label>Final changes<textarea name="final_changes" rows={2} /></label>
+        <label>Final changes<textarea name="final_changes" maxLength={6000} rows={2} /></label>
         <label>Language<input name="language" defaultValue="বাংলা" /></label>
         <label>Visual style<input name="style" defaultValue="Cinematic natural light" /></label>
+        <div className="field-grid">
+        <label>Source resolution<select name="resolution" defaultValue="1080p">
+          <option>720p</option><option>1080p</option>
+        </select></label>
         <label>Export resolution<select name="export_resolution" defaultValue="1080p">
           <option>720p</option><option>1080p</option><option>1440p</option><option value="2160p">4K</option>
         </select></label>
+        <label>Scenes<input type="number" name="scene_count" min={1} max={5} defaultValue={3} required /></label>
+        <label>Seconds per scene<input type="number" name="seconds_per_scene" min={4} max={12} defaultValue={6} required /></label>
+        </div>
+        <div className="field-grid">
+          <label><input name="audio" type="checkbox" defaultChecked /> Source audio</label>
+          <label><input name="burn_captions" type="checkbox" defaultChecked /> Burn captions</label>
+          <label><input name="made_for_kids" type="checkbox" /> Made for kids</label>
+          <label><input name="synthetic_disclosure" type="checkbox" /> Disclose synthetic media</label>
+        </div>
         <label><input name="demo" type="checkbox" defaultChecked /> Demo render</label>
-        <button disabled={!token}>Queue video</button>
+        <button disabled={!connected}>Queue video</button>
       </form></section>
-      <section id="queue"><h2>Job queue</h2>
-        {!jobs.length && <p className="muted">{token ? "No jobs to display." : "Connect to view your jobs."}</p>}
-        <ul>{jobs.map(job => <li key={job.id}>
+      <section id="queue" hidden={view !== "queue"}><div className="section-heading">
+        <h2>Recent jobs</h2>
+        <label className="queue-filter">Status<select value={filter} onChange={event => setFilter(event.target.value)}>
+          <option value="all">All jobs</option><option value="PENDING">Queued</option>
+          <option value="RUNNING">Writing</option><option value="RENDERING">Rendering</option>
+          <option value="READY_TO_PUBLISH">Ready</option><option value="FAILED">Failed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select></label></div>
+        {!visibleJobs.length && <p className="empty-state">{connected ? "No jobs match this filter." : "Connect to view your jobs."}</p>}
+        <ul>{visibleJobs.map(job => <li key={job.id}>
         <div><span className="job-id">{job.id.slice(0, 8)}</span>{" · "}
           <span className="state" data-state={job.state}>{job.state.toLowerCase().replaceAll("_", " ")}</span>
           {job.error && <div className="error-detail">{job.error}</div>}
@@ -133,7 +181,7 @@ export default function Studio() {
       </li>)}</ul>
       </section>
     </div>
-    {selected && <section className="preview-panel" aria-labelledby="preview-title">
+    {selected && view === "queue" && <section className="preview-panel" aria-labelledby="preview-title">
       <div className="section-heading"><h2 id="preview-title">Preview and publishing</h2>
         <button className="secondary" onClick={() => {setSelected(undefined); setPreview(""); setDeliveries([]); setMetrics("");}}>Close preview</button>
       </div>
@@ -152,7 +200,7 @@ export default function Studio() {
         })}>Metrics</button>}
       </li>)}</ul><p aria-live="polite">{metrics}</p>
     </section>}
-    <section id="providers" className="provider-panel"><h2>Provider defaults</h2>
+    <section id="providers" className="provider-panel" hidden={view !== "providers"}><h2>Provider defaults</h2>
       <form onSubmit={saveProviders}>
         <div className="field-grid">
           {[
@@ -179,5 +227,5 @@ export default function Studio() {
         <button disabled={!token}>Save defaults</button>
       </form>
     </section>
-  </main>;
+  </main></div>;
 }
