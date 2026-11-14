@@ -161,3 +161,14 @@ the target video, in addition to any permissions needed to publish.
 - [YouTube video statistics](https://developers.google.com/youtube/data/reference/rest/v3/videos)
 - [Facebook object likes](https://developers.facebook.com/docs/graph-api/reference/object/likes)
 - [Facebook object comments](https://developers.facebook.com/docs/graph-api/reference/object/comments)
+
+### Dashboard story routes
+
+Set STUDIO_LLM_URL_PRIMARY and STUDIO_LLM_KEY_PRIMARY on the server.
+For additional routes, use matching suffixes for URL and key variables.
+Use input/story-providers.example.json as the schema for the Story routing
+JSON field, replacing each base_url and key_env with its server-bound
+endpoint and key reference. The dashboard validates the schema and endpoint
+binding locally. Credentials remain on the worker. A job captures its
+routing JSON on submission, and the worker resolves credential references
+when it runs. Test live connectivity with your account when keys are available.

@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from provider_router import generate_story
+from provider_router import generate_story, parse_routing
 from providers import ProviderHTTPError
 
 
@@ -33,7 +33,7 @@ class StoryRoutingTests(unittest.TestCase):
 
     def run_router(self):
         self.path.write_text(json.dumps(self.config), encoding="utf-8")
-        return generate_story(self.path, {"scene_count": 1}, "Return JSON.")
+        return generate_story(parse_routing(self.path.read_text(encoding="utf-8")), {"scene_count": 1}, "Return JSON.")
 
     @patch("provider_router.request")
     def test_primary(self, request):

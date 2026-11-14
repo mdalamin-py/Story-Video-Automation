@@ -78,6 +78,7 @@ export default function Studio() {
         video_provider: values.video_provider || null, video_fallback: values.video_fallback || null,
         image_provider: values.image_provider || null, tts_provider: values.tts_provider || null,
         story_budget_usd: budget ? Number(budget) : null,
+        story_routing: values.story_routing ? JSON.parse(String(values.story_routing)) : null,
       }) });
     });
   }
@@ -217,12 +218,15 @@ export default function Studio() {
           </select></label>)}
           <label>Estimated story budget per job (USD)<input name="story_budget_usd" type="number" min="0" step="any" /></label>
         </div>
+        <label>Story routing JSON<textarea name="story_routing" rows={9}
+          placeholder="Leave blank to use the server configuration" spellCheck={false} /></label>
         <button type="button" disabled={!token} onClick={event => {
           const form = event.currentTarget.form;
           void act(async () => {
-            const defaults = await (await api("providers")).json() as Record<string, string | number | null>;
+            const defaults = await (await api("providers")).json() as Record<string, unknown>;
             for (const [key, value] of Object.entries(defaults)) {
               const field = form?.elements.namedItem(key);
+              if (field instanceof HTMLTextAreaElement) field.value = value ? JSON.stringify(value, null, 2) : "";
               if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) field.value = String(value ?? "");
             }
           });

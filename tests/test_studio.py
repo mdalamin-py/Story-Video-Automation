@@ -119,3 +119,17 @@ def test_abandoned_job_reconciliation(tmp_path, monkeypatch):
     assert jobs.lookup(demo)["state"] == "PENDING"
     assert not reconcile(paid, True)
     assert jobs.lookup(paid)["state"] == "FAILED"
+
+
+def test_admin_routing_cannot_retarget_server_key(monkeypatch):
+    import pytest
+    from backend.story_settings import validate_story_routing
+
+    monkeypatch.setenv("STUDIO_LLM_URL_PRIMARY", "https://example.com/v1")
+    provider = {"name": "main", "model": "demo", "key_env": "STUDIO_LLM_KEY_PRIMARY",
+                "base_url": "https://example.com/v1", "estimated_usd": 0.01}
+    routing = {"max_estimated_usd": 0.05, "providers": [provider]}
+    assert validate_story_routing(routing)["providers"][0]["model"] == "demo"
+    provider["base_url"] = "https://different.example/v1"
+    with pytest.raises(ValueError, match="server-configured endpoint"):
+        validate_story_routing(routing)

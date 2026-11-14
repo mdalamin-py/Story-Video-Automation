@@ -125,6 +125,13 @@ def provider_preferences(_: Admin):
 def update_provider_preferences(preferences: Preferences, _: Admin):
     if preferences.video_fallback and preferences.video_fallback == preferences.video_provider:
         raise HTTPException(422, "Choose a different video backup.")
+    if preferences.story_routing is not None:
+        from backend.story_settings import validate_story_routing
+
+        try:
+            preferences.story_routing = validate_story_routing(preferences.story_routing)
+        except ValueError:
+            raise HTTPException(422, "Invalid routing schema or server endpoint binding.") from None
     save_preferences(preferences)
     return preferences
 

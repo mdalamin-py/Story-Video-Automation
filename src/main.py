@@ -95,12 +95,14 @@ def draft(args):
         brief["scene_count"] = 3
     validate(brief)
     config = os.environ.get("STORY_PROVIDER_CONFIG", "").strip()
+    snapshot = os.environ.get("STORY_PROVIDER_SNAPSHOT", "").strip()
     if args.demo:
         plan = demo_plan(brief)
-    elif config:
-        from provider_router import generate_story
+    elif config or snapshot:
+        from provider_router import generate_story, parse_routing
 
-        plan = generate_story(ROOT / config, brief, STORY_INSTRUCTIONS)
+        routing = parse_routing(snapshot or (ROOT / config).read_text(encoding="utf-8-sig"))
+        plan = generate_story(routing, brief, STORY_INSTRUCTIONS)
     else:
         if os.environ.get("STORY_BUDGET_USD"):
             raise ValueError("Configure STORY_PROVIDER_CONFIG to enforce a story budget.")

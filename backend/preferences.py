@@ -1,5 +1,6 @@
 """Nonsecret provider preferences captured when a studio job is queued."""
 from contextlib import closing
+import json
 
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
@@ -12,12 +13,15 @@ class Preferences(BaseModel):
     image_provider: Literal["openai", "off"] | None = None
     tts_provider: Literal["openai", "elevenlabs"] | None = None
 
+    story_routing: dict | None = None
     story_budget_usd: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
     def environment(self):
         keys = {"video_provider": "VIDEO_PROVIDER", "video_fallback": "VIDEO_FALLBACK_PROVIDER",
                 "tts_provider": "TTS_PROVIDER", "image_provider": "IMAGE_PROVIDER", "story_budget_usd": "STORY_BUDGET_USD"}
-        return {keys[name]: "" if name == "image_provider" and value == "off" else str(value) for name, value in self.model_dump(exclude_none=True).items()}
+        return {keys[name]: "" if name == "image_provider" and value == "off" else str(value) for name, value in self.model_dump(exclude_none=True, exclude={"story_routing"}).items()} | (
+            {"STORY_PROVIDER_SNAPSHOT": json.dumps(self.story_routing)} if self.story_routing else {}
+        )
 
 
 def read_preferences(db):

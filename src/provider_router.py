@@ -3,7 +3,6 @@ import json
 import os
 import random
 import time
-from pathlib import Path
 from typing import Literal
 from urllib.error import URLError
 from urllib.parse import urlsplit
@@ -75,11 +74,14 @@ class Routing(BaseModel):
         return sorted(eligible, key=lambda provider: provider.priority)
 
 
-def generate_story(path: Path, brief: dict, instructions: str) -> dict:
+def parse_routing(raw: str) -> Routing:
     try:
-        config = Routing.model_validate_json(path.read_text(encoding="utf-8-sig"))
+        return Routing.model_validate_json(raw)
     except ValidationError as exc:
         raise ValueError(str(exc.errors(include_input=False, include_url=False))) from None
+
+
+def generate_story(config: Routing, brief: dict, instructions: str) -> dict:
     remaining = config.max_estimated_usd
     cap = os.environ.get("STORY_BUDGET_USD")
     if cap:
