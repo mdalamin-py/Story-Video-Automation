@@ -9,6 +9,7 @@ type Delivery = { platform: string; state: string; publish_at: string | null };
 export default function Studio() {
   const [view, setView] = useState<"queue" | "create" | "providers">("queue");
   const [filter, setFilter] = useState("all");
+  const [report, setReport] = useState("");
   const [usage, setUsage] = useState<{host: string; requests: number; failures: number; average_ms: number; reported_tokens: number | null; last_success: boolean | null; last_observed_at: string | null}[]>([]);
   const [connected, setConnected] = useState(false);
   const [token, setToken] = useState("");
@@ -123,7 +124,7 @@ export default function Studio() {
       <label>Admin token<input type="password" autoComplete="off" value={token}
         onChange={event => {
           setToken(event.target.value); setConnected(false); setJobs([]); setSelected(undefined);
-          setPreview(""); setMetrics(""); setDeliveries([]); setUsage([]);
+          setPreview(""); setMetrics(""); setDeliveries([]); setUsage([]); setReport("");
         }} /></label>
       <button className="secondary" disabled={!token}>{connected ? "Refresh" : "Connect"}</button>
     </form>
@@ -212,6 +213,19 @@ export default function Studio() {
       <button className="secondary" disabled={!connected} onClick={() => void act(async () => {
         setUsage(await (await api("provider-usage")).json());
       })}>Load request history</button>
+      <button className="secondary" disabled={!connected} onClick={() => void act(async () => {
+        const result = await (await api("provider-health/openai")).json();
+        setReport("OpenAI connection · " + result.status + (result.latency_ms == null ? "" : " · " + result.latency_ms + " ms"));
+      })}>Test OpenAI connection</button>
+      <button className="secondary" disabled={!connected} onClick={() => void act(async () => {
+        const result = await (await api("provider-costs/openai")).json() as {
+          scope: string; start: string; end: string; totals: Record<string, string>;
+        };
+        const totals = Object.entries(result.totals).map(([currency, value]) => currency + " " + value).join(" · ");
+        setReport("OpenAI " + result.scope + " costs since " + result.start.slice(0, 10) +
+          " UTC · " + (totals || "No costs reported"));
+      })}>Read OpenAI costs</button>
+      {report && <p role="status">{report}</p>}
       {usage.length > 0 && <ul aria-label="Provider request history">{usage.map(row => <li key={row.host}>
         <strong>{row.host}</strong>
         <span>{row.requests} requests · {row.failures} failed · {row.average_ms} ms average</span>

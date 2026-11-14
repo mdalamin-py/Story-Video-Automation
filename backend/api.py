@@ -180,3 +180,24 @@ def provider_usage(_: Admin):
     from src.usage import aggregate
 
     return aggregate(job_store.DATA / "usage.sqlite3", include_latest=True)
+
+
+@app.get("/api/provider-health/openai")
+def openai_health(_: Admin):
+    from backend.provider_reports import connection_status
+
+    return connection_status()
+
+
+@app.get("/api/provider-costs/openai")
+def provider_costs(_: Admin):
+    from decimal import InvalidOperation
+    from backend.provider_reports import openai_costs
+
+    try:
+        report = openai_costs()
+    except (OSError, ValueError, InvalidOperation, TypeError, KeyError, AttributeError):
+        raise HTTPException(502, "OpenAI cost report unavailable. Check the server admin credential.") from None
+    if report is None:
+        raise HTTPException(503, "Set OPENAI_ADMIN_KEY on the server to read OpenAI costs.")
+    return report

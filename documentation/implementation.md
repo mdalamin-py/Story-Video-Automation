@@ -199,3 +199,15 @@ and polling. Speech and media transfers use separate clients. These values
 are operational counters, not billable cost or live uptime checks.
 
 - [Vertex AI image generation](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/image/configure-aspect-ratio)
+
+### Read-only OpenAI account reports
+
+Providers can test the OpenAI connection via GET /v1/models. For actual
+OpenAI costs, configure OPENAI_ADMIN_KEY on the API server (separate
+from the ordinary generation key) and optionally OPENAI_COST_PROJECT_ID.
+The report covers the current UTC day and the preceding six UTC days.
+It reads the provider's reported costs and does not infer prices from
+request counters. Other vendors' account costs require vendor-specific
+billing integrations. Connection and cost controls are optional for demos.
+
+- [OpenAI Costs API](https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/costs)
