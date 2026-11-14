@@ -133,3 +133,19 @@ def test_admin_routing_cannot_retarget_server_key(monkeypatch):
     provider["base_url"] = "https://different.example/v1"
     with pytest.raises(ValueError, match="server-configured endpoint"):
         validate_story_routing(routing)
+
+
+def test_media_model_overrides_are_snapshotted(tmp_path, monkeypatch):
+    import json
+    from contextlib import closing
+    from backend.preferences import Preferences, save_preferences
+
+    monkeypatch.setattr(jobs, "DATA", tmp_path)
+    save_preferences(Preferences(image_model="image-v1", tts_model="voice-v1", tts_voice="voice-id"))
+    job = jobs.enqueue({"story": "test"}, False)
+    save_preferences(Preferences(tts_model="voice-v2"))
+    with closing(jobs.connect()) as db:
+        saved = db.execute("SELECT value FROM job_preferences WHERE id=?", (job,)).fetchone()
+    assert json.loads(saved["value"]) == {
+        "IMAGE_MODEL": "image-v1", "TTS_MODEL": "voice-v1", "TTS_VOICE": "voice-id"
+    }

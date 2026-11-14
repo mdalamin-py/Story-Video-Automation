@@ -78,6 +78,8 @@ export default function Studio() {
         video_provider: values.video_provider || null, video_fallback: values.video_fallback || null,
         image_provider: values.image_provider || null, tts_provider: values.tts_provider || null,
         story_budget_usd: budget ? Number(budget) : null,
+        ...Object.fromEntries(["image_model", "tts_model", "tts_voice", "tts_fallback_model", "tts_fallback_voice"]
+          .map(name => [name, String(values[name] ?? "").trim() || null])),
         story_routing: values.story_routing ? JSON.parse(String(values.story_routing)) : null,
       }) });
     });
@@ -216,6 +218,13 @@ export default function Studio() {
             <option value="">Use server settings</option>
             {values.map(value => <option key={value}>{value}</option>)}
           </select></label>)}
+          {[
+            ["image_model", "Illustration model"], ["tts_model", "Voice model"],
+            ["tts_voice", "Voice ID"], ["tts_fallback_model", "Backup voice model"],
+            ["tts_fallback_voice", "Backup voice ID"],
+          ].map(([key, label]) => <label key={key}>{label}
+            <input name={key} maxLength={200} placeholder="Use server settings" />
+          </label>)}
           <label>Estimated story budget per job (USD)<input name="story_budget_usd" type="number" min="0" step="any" /></label>
         </div>
         <label>Story routing JSON<textarea name="story_routing" rows={9}
