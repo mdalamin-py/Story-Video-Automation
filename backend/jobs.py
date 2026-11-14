@@ -13,7 +13,9 @@ from backend.database import database
 from backend.preferences import read_preferences
 from backend.storage import archive_preview
 
-ROOT = Path(__file__).resolve().parents[1]
+from backend.environment import ROOT, load_env
+
+load_env()
 DATA = Path(os.environ.get("STUDIO_DATA_DIR", ROOT / "runs" / "studio")).resolve()
 
 

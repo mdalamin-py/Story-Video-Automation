@@ -1,5 +1,22 @@
 # Story Video Automation
 
+## Start the dashboard on Windows
+
+With Python 3.12+ and Node.js installed, run:
+
+```powershell
+.\studio.cmd
+```
+
+The launcher starts Next.js, FastAPI, and the render worker together. Open
+the URL printed in the terminal and enter the printed admin token. If a
+preferred port is unavailable, the launcher uses an available port.
+Keep the terminal open while using the dashboard. Press Ctrl+C to stop it.
+
+An empty or missing .env is sufficient for demo jobs. Add real credentials to
+.env when available and restart the studio. Install FFmpeg with libass if it
+is not already available. Open the dashboard through the printed URL.
+
 ## Run the demo
 
 Open PowerShell in the project folder and run:
