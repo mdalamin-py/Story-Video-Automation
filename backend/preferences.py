@@ -13,6 +13,7 @@ class Preferences(BaseModel):
     image_provider: Literal["openai", "off"] | None = None
     tts_provider: Literal["openai", "elevenlabs"] | None = None
 
+    runway_video_model: Literal["gen4.5", "kling3.0_standard", "kling3.0_pro"] | None = None
     image_model: str | None = Field(default=None, min_length=1, max_length=200)
     tts_model: str | None = Field(default=None, min_length=1, max_length=200)
     tts_voice: str | None = Field(default=None, min_length=1, max_length=200)
@@ -26,7 +27,7 @@ class Preferences(BaseModel):
         keys = {"video_provider": "VIDEO_PROVIDER", "video_fallback": "VIDEO_FALLBACK_PROVIDER",
                 "tts_provider": "TTS_PROVIDER", "image_provider": "IMAGE_PROVIDER", "story_budget_usd": "STORY_BUDGET_USD"}
         keys.update({name: name.upper() for name in (
-            "image_model", "tts_model", "tts_voice", "tts_fallback_model", "tts_fallback_voice"
+            "runway_video_model", "image_model", "tts_model", "tts_voice", "tts_fallback_model", "tts_fallback_voice"
         )})
         return {keys[name]: "" if name == "image_provider" and value == "off" else str(value) for name, value in self.model_dump(exclude_none=True, exclude={"story_routing"}).items()} | (
             {"STORY_PROVIDER_SNAPSHOT": json.dumps(self.story_routing)} if self.story_routing else {}

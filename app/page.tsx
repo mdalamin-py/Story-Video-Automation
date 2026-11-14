@@ -76,6 +76,7 @@ export default function Studio() {
     void act(async () => {
       await api("providers", { method: "PUT", body: JSON.stringify({
         video_provider: values.video_provider || null, video_fallback: values.video_fallback || null,
+        runway_video_model: values.runway_video_model || null,
         image_provider: values.image_provider || null, tts_provider: values.tts_provider || null,
         story_budget_usd: budget ? Number(budget) : null,
         ...Object.fromEntries(["image_model", "tts_model", "tts_voice", "tts_fallback_model", "tts_fallback_voice"]
@@ -212,6 +213,7 @@ export default function Studio() {
           {[
             ["video_provider", "Video provider", "muse-video.com", "runway"],
             ["video_fallback", "Video backup", "muse-video.com", "runway"],
+            ["runway_video_model", "Runway model", "gen4.5", "kling3.0_standard", "kling3.0_pro"],
             ["image_provider", "Illustrations", "openai", "off"],
             ["tts_provider", "Voice provider", "openai", "elevenlabs"],
           ].map(([key, label, ...values]) => <label key={key}>{label}<select name={key}>

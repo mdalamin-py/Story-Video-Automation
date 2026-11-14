@@ -172,3 +172,13 @@ endpoint and key reference. The dashboard validates the schema and endpoint
 binding locally. Credentials remain on the worker. A job captures its
 routing JSON on submission, and the worker resolves credential references
 when it runs. Test live connectivity with your account when keys are available.
+
+### Runway models
+
+Select the Runway model in the dashboard or set RUNWAY_VIDEO_MODEL.
+Gen-4.5 uses a 720p source without source audio. Kling 3.0 Standard
+uses 720p and Kling 3.0 Pro uses 1080p, with optional source audio.
+Export size is independent. When Runway is a backup, its selected model
+must support the same source settings as the primary provider.
+
+- [Runway video inputs](https://docs.dev.runwayml.com/assets/inputs/)

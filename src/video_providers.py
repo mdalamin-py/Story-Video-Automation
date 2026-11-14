@@ -7,7 +7,7 @@ from urllib.request import urlopen
 from providers import ProviderHTTPError, muse_video, request, required, write_json
 
 
-def runway_video(scene, brief, folder, number):
+def runway_video(scene, brief, folder, number, model="gen4.5"):
     clip = folder / f"scene-{number:02}.mp4"
     journal = folder / f"scene-{number:02}.json"
     if clip.is_file():
@@ -22,11 +22,15 @@ def runway_video(scene, brief, folder, number):
         if len(prompt.encode("utf-16-le")) // 2 > 1000:
             raise ValueError("Runway Gen-4.5 requires at most 1,000 UTF-16 units per scene prompt.")
         write_json(journal, {"submission": "pending"})
+        payload = {
+            "model": model, "promptText": prompt,
+            "ratio": "1080:1920" if brief["resolution"] == "1080p" else "720:1280",
+            "duration": brief["seconds_per_scene"],
+        }
+        if model != "gen4.5":
+            payload["audio"] = brief["audio"]
         try:
-            task, _ = request(base + "text_to_video", "POST", token, {
-                "model": "gen4.5", "promptText": prompt, "ratio": "720:1280",
-                "duration": brief["seconds_per_scene"],
-            }, headers)
+            task, _ = request(base + "text_to_video", "POST", token, payload, headers)
         except ProviderHTTPError as exc:
             if exc.status in (400, 401, 403, 429):
                 journal.unlink()
@@ -57,14 +61,34 @@ def runway_video(scene, brief, folder, number):
 VIDEO_ADAPTERS = {"muse-video.com": muse_video, "runway": runway_video}
 
 
+RUNWAY_MODELS = {
+    "gen4.5": ("720p", 2, 10, False),
+    "kling3.0_standard": ("720p", 3, 15, True),
+    "kling3.0_pro": ("1080p", 3, 15, True),
+}
+
+
 def select_video_provider(name, brief):
     if name not in VIDEO_ADAPTERS:
         raise ValueError("VIDEO_PROVIDER must be muse-video.com or runway.")
-    if name == "runway" and (brief["resolution"] != "720p" or brief["audio"]
-                             or not 2 <= brief["seconds_per_scene"] <= 10):
-        raise ValueError("Runway Gen-4.5 requires 720p source, audio=false and 2–10 second scenes.")
-    required("RUNWAY_API_KEY" if name == "runway" else "MUSE_API_KEY")
-    return VIDEO_ADAPTERS[name]
+    if name == "muse-video.com":
+        required("MUSE_API_KEY")
+        return VIDEO_ADAPTERS[name]
+    model = os.environ.get("RUNWAY_VIDEO_MODEL", "").strip() or "gen4.5"
+    if model not in RUNWAY_MODELS:
+        raise ValueError("Unsupported Runway model: choose Gen-4.5, Kling Standard, or Kling Pro.")
+    resolution, shortest, longest, has_audio = RUNWAY_MODELS[model]
+    if (brief["resolution"] != resolution or (brief["audio"] and not has_audio)
+            or not shortest <= brief["seconds_per_scene"] <= longest):
+        raise ValueError(f"{model} requires {resolution} source and {shortest}–{longest} second scenes."
+                         + ("" if has_audio else " Disable source audio."))
+    required("RUNWAY_API_KEY")
+
+    def generate(scene, video_brief, folder, number):
+        return VIDEO_ADAPTERS[name](scene, video_brief, folder, number, model=model)
+
+    return generate
+
 
 
 def video_route(primary_name, brief):

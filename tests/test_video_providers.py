@@ -43,3 +43,12 @@ def test_fallback_only_after_rejected_submission(tmp_path, monkeypatch, status, 
             with pytest.raises(ProviderHTTPError):
                 route({}, {}, tmp_path, 1)
             backup.assert_not_called()
+
+
+def test_runway_pro_model_is_forwarded(tmp_path, monkeypatch):
+    monkeypatch.setenv("RUNWAY_API_KEY", "test")
+    monkeypatch.setenv("RUNWAY_VIDEO_MODEL", "kling3.0_pro")
+    brief = {"resolution": "1080p", "audio": True, "seconds_per_scene": 6}
+    with patch.dict("video_providers.VIDEO_ADAPTERS", {"runway": Mock()}) as adapters:
+        select_video_provider("runway", brief)({}, brief, tmp_path, 1)
+        adapters["runway"].assert_called_once_with({}, brief, tmp_path, 1, model="kling3.0_pro")

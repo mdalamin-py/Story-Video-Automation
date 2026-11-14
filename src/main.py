@@ -154,6 +154,11 @@ def process(folder, args):
                 adapter = video_route(video_provider, video_brief)
                 if video_provider != "muse-video.com":
                     generation_inputs["provider"] = video_provider
+                runway_model = os.environ.get("RUNWAY_VIDEO_MODEL", "").strip()
+                if runway_model and runway_model != "gen4.5" and (
+                    video_provider == "runway" or os.environ.get("VIDEO_FALLBACK_PROVIDER", "").strip() == "runway"
+                ):
+                    generation_inputs["runway_model"] = runway_model
             asset_key = hashlib.sha256(json.dumps(generation_inputs, sort_keys=True).encode()).hexdigest()
             assets = folder / "assets" / asset_key
             assets.mkdir(parents=True, exist_ok=True)
