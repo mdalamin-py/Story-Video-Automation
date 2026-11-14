@@ -101,3 +101,21 @@ def test_recovery_only_requeues_safe_work(tmp_path, monkeypatch):
     monkeypatch.setattr(jobs, "invoke", forbidden)
     jobs.produce(jobs.lookup(paid))
     assert jobs.lookup(paid)["state"] == "READY_TO_PUBLISH"
+
+
+def test_abandoned_job_reconciliation(tmp_path, monkeypatch):
+    import pytest
+    from backend.recovery import reconcile
+
+    monkeypatch.setattr(jobs, "DATA", tmp_path)
+    demo = jobs.enqueue({"story": "demo"}, True)
+    paid = jobs.enqueue({"story": "paid"}, False)
+    assert jobs.transition(demo, "PENDING", "RUNNING")
+    assert jobs.transition(paid, "PENDING", "RUNNING")
+    with pytest.raises(ValueError, match="Stop every worker"):
+        reconcile(demo, False)
+    assert jobs.lookup(demo)["state"] == "RUNNING"
+    assert reconcile(demo, True)
+    assert jobs.lookup(demo)["state"] == "PENDING"
+    assert not reconcile(paid, True)
+    assert jobs.lookup(paid)["state"] == "FAILED"

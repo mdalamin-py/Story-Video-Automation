@@ -88,3 +88,12 @@ can be recovered if its render receipt and local MP4 exist. The worker
 retries the archive of that existing MP4. Paid render failures without
 a completed preview and interrupted uploads require provider or platform
 reconciliation. Stop workers before inspecting an abandoned active job.
+
+For a job left in RUNNING or RENDERING after a crash, stop all studio
+workers and their renderer subprocesses before running:
+
+    python -m backend.recovery JOB_ID --workers-stopped
+
+The command requeues demo jobs and real jobs with a completed render.
+Other paid jobs are marked failed for manual provider reconciliation.
+The command does not alter publishing deliveries.
