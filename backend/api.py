@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from backend.jobs import ROOT, deliveries, enqueue, get_jobs, invoke, lookup, schedule_delivery, summary, transition, worker_status
+from backend.jobs import ROOT, deliveries, enqueue, get_jobs, invoke, lookup, recover_failed, schedule_delivery, summary, transition, worker_status
 
 from backend.storage import preview_url
 from backend.preferences import Preferences, get_preferences, save_preferences
@@ -158,3 +158,10 @@ def metrics(_: Admin):
     for name, age in worker_status().items():
         lines.append(f"studio_worker_last_seen_seconds{{worker={json.dumps(name)}}} {age}")
     return "\n".join(lines) + "\n"
+
+
+@app.post("/api/jobs/{job_id}/recover", status_code=202)
+def recover(job_id: str, _: Admin):
+    if not recover_failed(job_id):
+        raise HTTPException(409, "Recovery requires a failed demo or a completed render. Check paid requests in the provider dashboard.")
+    return {"state": "PENDING"}

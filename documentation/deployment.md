@@ -80,3 +80,11 @@ Scrape /metrics with the studio admin bearer token. Store the token in
 the scraper's secret file. The endpoint exports queue items by state and
 worker heartbeat age. Size alert thresholds to the expected job runtime.
 Load studio-alerts.yaml as a Prometheus rule file and use story-video-studio as the scrape job name. Configure Alertmanager separately to deliver notifications.
+
+## Recover a failed job
+
+Use Recover from the Next.js queue to retry a failed demo. A real job
+can be recovered if its render receipt and local MP4 exist. The worker
+retries the archive of that existing MP4. Paid render failures without
+a completed preview and interrupted uploads require provider or platform
+reconciliation. Stop workers before inspecting an abandoned active job.

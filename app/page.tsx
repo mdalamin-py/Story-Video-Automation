@@ -170,6 +170,9 @@ export default function Studio() {
           <span className="state" data-state={job.state}>{job.state.toLowerCase().replaceAll("_", " ")}</span>
           {job.error && <div className="error-detail">{job.error}</div>}
         </div>
+        {job.state === "FAILED" && <button onClick={() => void act(async () => {
+          await api("jobs/" + job.id + "/recover", { method: "POST" }); await refresh();
+        })}>Recover</button>}
         {job.state === "PENDING" && <button onClick={() => void act(async () => {
           await api("jobs/" + job.id + "/cancel", { method: "POST" }); await refresh();
         })}>Cancel</button>}

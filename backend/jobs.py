@@ -94,6 +94,17 @@ def invoke(*arguments, overrides=None):
 def produce(row):
     brief_path = DATA / (row["id"] + ".json")
     try:
+        if row["run"] and not row["demo"]:
+            # Recovery of a finished render only retries its deterministic archive.
+            run = row["run"]
+            folder = ROOT / "runs" / run
+            if not (folder / "render.json").is_file() or not (folder / "preview.mp4").is_file():
+                raise RuntimeError("Completed render files are missing.")
+            if not transition(row["id"], "RUNNING", "RENDERING"):
+                return
+            archive_job(run)
+            transition(row["id"], "RENDERING", "READY_TO_PUBLISH")
+            return
         brief_path.write_text(row["brief"], encoding="utf-8")
         arguments = ["draft", "--brief", str(brief_path)]
         if row["demo"]:
@@ -106,7 +117,8 @@ def produce(row):
         if not match:
             raise RuntimeError("Draft did not report a run name.")
         run = match[1]
-        transition(row["id"], "RUNNING", "RENDERING", run)
+        if not transition(row["id"], "RUNNING", "RENDERING", run):
+            return
         invoke("render", run, overrides=overrides)
         if not row["demo"]:
             archive_job(run)
@@ -198,3 +210,17 @@ def worker_status():
         rows = db.execute("SELECT name,seen FROM worker_heartbeat").fetchall()
     return {row["name"]: round((now - datetime.fromisoformat(row["seen"])).total_seconds(), 1)
             for row in rows}
+
+
+def recover_failed(job_id):
+    row = lookup(job_id)
+    if not row or row["state"] != "FAILED":
+        return False
+    if not row["demo"]:
+        run = row["run"]
+        if not run or not re.fullmatch(r"[0-9-]+", run):
+            return False
+        folder = ROOT / "runs" / run
+        if not all((folder / name).is_file() for name in ("render.json", "preview.mp4")):
+            return False
+    return transition(job_id, "FAILED", "PENDING")

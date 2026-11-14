@@ -75,3 +75,29 @@ def test_queue_captures_provider_defaults(tmp_path, monkeypatch):
     with closing(jobs.connect()) as db:
         value = db.execute("SELECT value FROM job_preferences WHERE id=?", (job,)).fetchone()[0]
     assert json.loads(value) == {"VIDEO_PROVIDER": "runway", "STORY_BUDGET_USD": "0.02"}
+
+
+def test_recovery_only_requeues_safe_work(tmp_path, monkeypatch):
+    monkeypatch.setattr(jobs, "DATA", tmp_path)
+    monkeypatch.setattr(jobs, "ROOT", tmp_path)
+    demo = jobs.enqueue({"story": "demo"}, True)
+    paid = jobs.enqueue({"story": "paid"}, False)
+    run = "20261114-000000-000001"
+    assert jobs.transition(demo, "PENDING", "FAILED")
+    assert jobs.transition(paid, "PENDING", "FAILED", run)
+    assert jobs.recover_failed(demo)
+    assert not jobs.recover_failed(demo)
+    assert not jobs.recover_failed(paid)
+    folder = tmp_path / "runs" / run
+    folder.mkdir(parents=True)
+    (folder / "render.json").write_text("{}")
+    (folder / "preview.mp4").write_bytes(b"video")
+    assert jobs.recover_failed(paid)
+    assert jobs.transition(paid, "PENDING", "RUNNING")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Recovery must not invoke a paid CLI command.")
+
+    monkeypatch.setattr(jobs, "invoke", forbidden)
+    jobs.produce(jobs.lookup(paid))
+    assert jobs.lookup(paid)["state"] == "READY_TO_PUBLISH"
