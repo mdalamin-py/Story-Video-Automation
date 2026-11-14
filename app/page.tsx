@@ -249,6 +249,14 @@ export default function Studio() {
             result.task_credits == null ? "" : result.task_credits + " credits for this task",
           ].filter(Boolean).join(" · "));
         })}>Check {{runway: "Runway", muse: "Muse Video", vertex: "Vertex AI"}[provider]}</button>)}
+      <button className="secondary" disabled={!connected} onClick={() => void act(async () => {
+        const result = await (await api("provider-costs/runway")).json() as {
+          start: string; credits_used: number; by_model: Record<string, number>;
+        };
+        const models = Object.entries(result.by_model).map(([model, credits]) => model + " " + credits).join(" · ");
+        setReport("Runway · " + result.credits_used.toLocaleString() + " net credits since " +
+          result.start + " UTC" + (models ? " · " + models : ""));
+      })}>Read Runway credit usage</button>
       {report && <p role="status">{report}</p>}
       {usage.length > 0 && <ul aria-label="Provider request history">{usage.map(row => <li key={row.host}>
         <strong>{row.host}</strong>

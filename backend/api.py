@@ -215,3 +215,16 @@ def media_health(provider: Literal["runway", "muse", "vertex"], _: Admin):
     from backend.provider_reports import media_account
 
     return media_account(provider)
+
+
+@app.get("/api/provider-costs/runway")
+def runway_credits(_: Admin):
+    from backend.provider_reports import runway_usage
+
+    try:
+        report = runway_usage()
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        raise HTTPException(502, "Runway usage unavailable. Check the server credential.") from None
+    if report is None:
+        raise HTTPException(503, "Set RUNWAY_API_KEY on the server to read credit usage.")
+    return report

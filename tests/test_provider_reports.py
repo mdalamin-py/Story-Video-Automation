@@ -68,3 +68,18 @@ def test_media_account_reports_read_only_data(monkeypatch):
     monkeypatch.setenv("IMAGE_MODEL", "imagen")
     with patch("backend.provider_reports.read_json", return_value={"name": "publishers/google/models/imagen"}):
         assert media_account("vertex")["status"] == "reachable"
+
+
+def test_runway_usage_accounts_for_refunds(monkeypatch):
+    from backend.provider_reports import runway_usage
+
+    monkeypatch.setenv("RUNWAY_API_KEY", "test")
+    payload = {"results": [
+        {"usedCredits": [{"model": "gen4.5", "amount": 90}, {"model": "kling3.0_pro", "amount": 12}]},
+        {"usedCredits": [{"model": "gen4.5", "amount": -20}]},
+    ]}
+    with patch("backend.provider_reports.read_json", return_value=payload) as read:
+        report = runway_usage()
+    assert report["credits_used"] == 82
+    assert report["by_model"] == {"gen4.5": 70, "kling3.0_pro": 12}
+    assert "/v1/organization/usage?startDate=" in read.call_args.args[0]

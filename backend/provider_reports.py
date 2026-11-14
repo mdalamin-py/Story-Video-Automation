@@ -140,3 +140,23 @@ def media_account(provider):
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         report["status"] = "request failed"
     return {**report, "latency_ms": round((monotonic() - started) * 1000)}
+
+
+def runway_usage():
+    key = os.environ.get("RUNWAY_API_KEY", "").strip()
+    if not key:
+        return None
+    end = datetime.now(UTC).date() + timedelta(days=1)
+    start = end - timedelta(days=7)
+    query = urlencode({"startDate": start.isoformat(), "beforeDate": end.isoformat()})
+    result = read_json("https://api.dev.runwayml.com/v1/organization/usage?" + query,
+                       key, extra_headers={"X-Runway-Version": "2024-11-06"})
+    models = {}
+    for day in result["results"]:
+        for entry in day["usedCredits"]:
+            amount, model = entry["amount"], entry["model"]
+            if type(amount) is not int or not isinstance(model, str) or not model:
+                raise ValueError("Invalid Runway usage response.")
+            models[model] = models.get(model, 0) + amount
+    return {"start": start.isoformat(), "end_exclusive": end.isoformat(),
+            "credits_used": sum(models.values()), "by_model": models}

@@ -232,3 +232,11 @@ The Vertex check does not establish permission to generate or report spend.
 - [Runway organization API](https://github.com/runwayml/sdk-python/blob/main/src/runwayml/resources/organization.py)
 - [Muse task status API](https://muse-video.com/docs/api)
 - [Vertex publisher models](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/rest/v1/publishers.models/get)
+
+The Runway credit usage control reports net organization credits by
+model for the current UTC date and its preceding six days. Refunds
+remain negative entries in the totals. Credits are displayed in Runway
+units alongside its balance, separately from OpenAI currency and
+ElevenLabs quota.
+
+- [Runway organization usage](https://github.com/runwayml/sdk-python/blob/main/src/runwayml/resources/organization.py)
