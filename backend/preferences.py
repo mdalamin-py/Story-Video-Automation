@@ -10,7 +10,7 @@ class Preferences(BaseModel):
     model_config = ConfigDict(extra="forbid")
     video_provider: Literal["muse-video.com", "runway"] | None = None
     video_fallback: Literal["muse-video.com", "runway"] | None = None
-    image_provider: Literal["openai", "off"] | None = None
+    image_provider: Literal["openai", "vertex", "off"] | None = None
     tts_provider: Literal["openai", "elevenlabs"] | None = None
 
     runway_video_model: Literal["gen4.5", "kling3.0_standard", "kling3.0_pro"] | None = None

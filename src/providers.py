@@ -7,6 +7,9 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 
+from usage import record
+
+
 def required(name):
     value = os.environ.get(name, "").strip()
     if not value:
@@ -28,12 +31,18 @@ def request(url, method="GET", token=None, payload=None, headers=None, stream=No
     if payload is not None:
         headers["Content-Type"] = "application/json"
         stream = json.dumps(payload, ensure_ascii=False).encode()
+    started = time.monotonic()
+    success, result = False, None
     try:
         with urlopen(Request(url, data=stream, headers=headers, method=method), timeout=180) as reply:
-            return json.loads(reply.read() or b"{}"), reply.headers
+            result = json.loads(reply.read() or b"{}")
+            success = True
+            return result, reply.headers
     except HTTPError as exc:
         retry = exc.headers.get("Retry-After", "")
         raise ProviderHTTPError(urlsplit(url).hostname, exc.code, int(retry) if retry.isdigit() else None) from None
+    finally:
+        record(urlsplit(url).hostname, success, round((time.monotonic() - started) * 1000), result)
 
 
 def write_json(path, data):

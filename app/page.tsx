@@ -9,6 +9,7 @@ type Delivery = { platform: string; state: string; publish_at: string | null };
 export default function Studio() {
   const [view, setView] = useState<"queue" | "create" | "providers">("queue");
   const [filter, setFilter] = useState("all");
+  const [usage, setUsage] = useState<{host: string; requests: number; failures: number; average_ms: number; reported_tokens: number | null}[]>([]);
   const [connected, setConnected] = useState(false);
   const [token, setToken] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -122,7 +123,7 @@ export default function Studio() {
       <label>Admin token<input type="password" autoComplete="off" value={token}
         onChange={event => {
           setToken(event.target.value); setConnected(false); setJobs([]); setSelected(undefined);
-          setPreview(""); setMetrics(""); setDeliveries([]);
+          setPreview(""); setMetrics(""); setDeliveries([]); setUsage([]);
         }} /></label>
       <button className="secondary" disabled={!token}>{connected ? "Refresh" : "Connect"}</button>
     </form>
@@ -208,13 +209,21 @@ export default function Studio() {
       </li>)}</ul><p aria-live="polite">{metrics}</p>
     </section>}
     <section id="providers" className="provider-panel" hidden={view !== "providers"}><h2>Provider defaults</h2>
+      <button className="secondary" disabled={!connected} onClick={() => void act(async () => {
+        setUsage(await (await api("provider-usage")).json());
+      })}>Load request history</button>
+      {usage.length > 0 && <ul aria-label="Provider request history">{usage.map(row => <li key={row.host}>
+        <strong>{row.host}</strong>
+        <span>{row.requests} requests · {row.failures} failed · {row.average_ms} ms average</span>
+        <span>{row.reported_tokens ?? "Unavailable"} reported tokens</span>
+      </li>)}</ul>}
       <form onSubmit={saveProviders}>
         <div className="field-grid">
           {[
             ["video_provider", "Video provider", "muse-video.com", "runway"],
             ["video_fallback", "Video backup", "muse-video.com", "runway"],
             ["runway_video_model", "Runway model", "gen4.5", "kling3.0_standard", "kling3.0_pro"],
-            ["image_provider", "Illustrations", "openai", "off"],
+            ["image_provider", "Illustrations", "openai", "vertex", "off"],
             ["tts_provider", "Voice provider", "openai", "elevenlabs"],
           ].map(([key, label, ...values]) => <label key={key}>{label}<select name={key}>
             <option value="">Use server settings</option>

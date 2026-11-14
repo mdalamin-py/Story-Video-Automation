@@ -85,7 +85,7 @@ def lookup(job_id):
 
 def invoke(*arguments, overrides=None):
     result = subprocess.run([sys.executable, str(ROOT / "src" / "main.py"), *arguments],
-                            cwd=ROOT, env={**os.environ, **(overrides or {})}, capture_output=True, encoding="utf-8",
+                            cwd=ROOT, env={**os.environ, **(overrides or {}), "STUDIO_USAGE_DB": str(DATA / "usage.sqlite3")}, capture_output=True, encoding="utf-8",
                             errors="replace", timeout=7200)
     if result.returncode:
         # Provider errors and subprocess arguments can contain private data.

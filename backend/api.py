@@ -172,3 +172,11 @@ def recover(job_id: str, _: Admin):
     if not recover_failed(job_id):
         raise HTTPException(409, "Recovery requires a failed demo or a completed render. Check paid requests in the provider dashboard.")
     return {"state": "PENDING"}
+
+
+@app.get("/api/provider-usage")
+def provider_usage(_: Admin):
+    from backend import jobs as job_store
+    from src.usage import aggregate
+
+    return aggregate(job_store.DATA / "usage.sqlite3")

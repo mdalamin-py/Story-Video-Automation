@@ -58,3 +58,17 @@ def test_metrics_requires_authentication(tmp_path, monkeypatch):
     assert response.status_code == 200
     assert 'studio_queue_items{queue="jobs",state="PENDING"} 1' in response.text
     assert 'studio_worker_last_seen_seconds{worker="local"}' in response.text
+
+
+def test_provider_usage_retains_only_counts(tmp_path, monkeypatch):
+    from src.usage import aggregate, record
+
+    path = tmp_path / "usage.sqlite3"
+    monkeypatch.setenv("STUDIO_USAGE_DB", str(path))
+    record("provider.example", True, 100, {"usage": {"total_tokens": 17}, "message": "hidden"})
+    record("provider.example", False, 200)
+    assert aggregate(path) == [{
+        "host": "provider.example", "requests": 2, "failures": 1,
+        "average_ms": 150, "reported_tokens": 17,
+    }]
+    assert b"hidden" not in path.read_bytes()

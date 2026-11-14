@@ -145,7 +145,9 @@ def process(folder, args):
             ]
             video_provider = os.environ.get("VIDEO_PROVIDER") or os.environ.get("MUSE_PROVIDER", "")
             if illustration:
-                generation_inputs["provider"] = "openai-image"
+                generation_inputs["provider"] = "vertex-image" if len(illustration) == 3 else "openai-image"
+                if len(illustration) == 3:
+                    generation_inputs["image_endpoint"] = illustration[2]
                 generation_inputs["image_model"] = illustration[0]
 
                 def adapter(scene, video_brief, folder, number):

@@ -182,3 +182,20 @@ Export size is independent. When Runway is a backup, its selected model
 must support the same source settings as the primary provider.
 
 - [Runway video inputs](https://docs.dev.runwayml.com/assets/inputs/)
+
+### Vertex AI Imagen and request history
+
+Select vertex under Illustrations to use Imagen on Vertex AI. Set
+VERTEX_PROJECT and VERTEX_REGION as server settings, choose an accessible
+Imagen model, and supply a current OAuth access token in VERTEX_ACCESS_TOKEN.
+Refresh expired tokens before submitting new jobs. The adapter sends a
+single portrait prediction and caches the returned PNG. Verify model and
+region availability in your Google Cloud project.
+
+Load request history in Providers to see counts, HTTP/transport failures,
+average latency, and total_tokens where returned by the vendor. The counts
+cover the shared JSON request client, including OAuth and publishing calls
+and polling. Speech and media transfers use separate clients. These values
+are operational counters, not billable cost or live uptime checks.
+
+- [Vertex AI image generation](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/image/configure-aspect-ratio)
