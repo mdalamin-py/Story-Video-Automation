@@ -1,12 +1,72 @@
-# Story Video Automation
+<h1 align="center">Story Video Automation</h1>
 
-Project requirements: Python for the backend/rendering and plain Node.js for the dashboard.
-Do not add Next.js or another frontend framework. Keep every Python dependency in
-the single root `requirements.txt`; do not create separate local, dev or distributed
-requirements files. Avoid redundant setup files and dependencies.
+<p align="center"><b>Turn a story into a narrated cinematic film, with Bangla voice and captions.</b><br>
+Write an idea, approve the script, the look and a draft, and download the MP4, subtitles and credits.</p>
 
-Install Python packages once with `python -m pip install -r requirements.txt`.
-Node.js has no npm package dependencies. FFmpeg/FFprobe remain system tools.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat&logo=python&logoColor=white" alt="Python 3.12" />
+  <img src="https://img.shields.io/badge/Node.js-22%2B-339933?style=flat&logo=nodedotjs&logoColor=white" alt="Node.js 22+" />
+  <img src="https://img.shields.io/badge/FFmpeg-required-007808?style=flat&logo=ffmpeg&logoColor=white" alt="FFmpeg" />
+  <img src="https://img.shields.io/badge/language-বাংলা%20%7C%20English-f2b544?style=flat" alt="Bangla and English" />
+  <img src="https://img.shields.io/badge/AI-OpenAI%20%C2%B7%20Claude%20%C2%B7%20Gemini%20%C2%B7%20Muse%20%C2%B7%20Runway-24292f?style=flat" alt="OpenAI, Claude, Gemini, Muse, Runway" />
+</p>
+
+<p align="center"><img src="documentation/images/overview.jpg" alt="Story Studio overview: a viewfinder hero over a sunset scene, project counters and recent films" width="100%" /></p>
+
+## What it does
+
+- **Local cinematic films for free.** The bundled cinematic-film engine draws every frame in code:
+  one continuous camera over a designed world, stamps, counters, maps and photos timed to the narration.
+  Voice (Edge TTS), sound effects, mixing, rendering and Bangla captions all run on your computer.
+- **You approve each step.** Script and beat table, then preview frames and contact sheets, then a
+  30-second draft, then the final export. Automatic checks flag script, look and voice problems first.
+- **Any AI, per video.** Pick Gemini, OpenAI or Claude for the story, or Auto for the cheapest connected
+  one; Muse or Runway for generated clips; OpenAI or Vertex for images; OpenAI or ElevenLabs for voice.
+- **Low AI spend.** Story plans and clips are cached per scene, so edits only pay for what changed,
+  and the dashboard shows the estimated cost before you queue.
+
+<table>
+  <tr>
+    <td width="50%"><img src="documentation/images/review.jpg" alt="Project window: the finished film, download buttons and the seven-stage progress stepper" /></td>
+    <td width="50%"><img src="documentation/images/library-light.jpg" alt="Video library in light mode with real frames from each film as thumbnails" /></td>
+  </tr>
+  <tr>
+    <td><sub>Review a film: watch it, download MP4 and subtitles, and follow all seven stages.</sub></td>
+    <td><sub>Your library in light mode, each card showing a frame from its own film.</sub></td>
+  </tr>
+</table>
+
+## Quick start (Windows)
+
+```bat
+python -m pip install -r requirements.txt
+studio.cmd
+```
+
+The dashboard opens in your browser. Choose **Create a video**, write your story (Bangla or English),
+pick a film look, and press **Create my video**. Local cinematic mode needs FFmpeg on PATH and a
+signed-in Codex CLI for planning; provider mode needs the API keys listed in `.env.example`.
+
+## How a film is made
+
+| Step | What happens | You |
+| --- | --- | --- |
+| 1. Story | The planner writes `script.json` and `scene.py`, then fixes the beat-table lint | Approve the script |
+| 2. Voice | Bangla or English narration, timed line by line | — |
+| 3. Assets | Photos with licences, maps, fonts and prepared images | — |
+| 4. Look | Preview stills and a contact sheet per camera move, checked automatically | Approve the look |
+| 5. Draft | A 30-second 720p draft with the voice | Approve the draft |
+| 6. Sound | Synthesised effects, optional score, loudness-normalised mix | — |
+| 7. Export | Full render, burned-in captions, SRT, credits and a playback check | Download |
+
+<p align="center"><img src="documentation/images/create.jpg" alt="Create page: story box, mood and format settings, and the seven film looks" width="100%" /></p>
+
+## Project rules
+
+Python for the backend and rendering; plain Node.js for the dashboard. Do not add Next.js or another
+frontend framework. Keep every Python dependency in the single root `requirements.txt`; do not create
+separate local, dev or distributed requirements files. Avoid redundant setup files and dependencies.
+Node.js has no npm package dependencies. FFmpeg and FFprobe remain system tools.
 
 ## Cinematic-film backend
 
@@ -59,6 +119,22 @@ bounded encoder threads and a portable sound filter. Word timing is approximate
 letter-share timing, as in the source engine; it is not forced audio alignment.
 `split_takes.py` and `captions.py` count letters in any script, so Bangla recorded
 takes are timed and flagged correctly (they previously counted only A–Z).
+
+## Choosing the story AI
+
+In **Connected providers** mode, pick the **Story AI** for each video on the Create page:
+
+| Choice | Uses | Key in `.env` | Model setting (default) |
+| --- | --- | --- | --- |
+| Auto | The cheapest connected AI; if it fails, the next one | any of the keys below | — |
+| Gemini | Gemini's OpenAI-compatible API | `GEMINI_API_KEY` | `GEMINI_STORY_MODEL` (gemini-2.5-flash) |
+| OpenAI | OpenAI Responses API | `OPENAI_API_KEY` | `OPENAI_MODEL` (gpt-5-mini) |
+| Claude | Anthropic SDK, structured output, refusal fallback | `ANTHROPIC_API_KEY` | `CLAUDE_STORY_MODEL` (claude-opus-5-5), `CLAUDE_STORY_EFFORT` (medium) |
+
+The list shows which AIs have a key (never the key) and remembers your last choice. Each video
+saves the AI it used in its log, and every plan is cached, so re-running the same brief is free.
+A `STORY_PROVIDER_CONFIG` routing file still applies when the choice is left on **Auto**.
+Video clips (Muse, Runway), images and voice are still chosen on **Providers & settings**.
 
 ## Keeping AI costs low
 

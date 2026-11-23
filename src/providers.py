@@ -92,8 +92,8 @@ def save_story(path, plan):
         write_json(path, plan)
 
 
-def story_payload(brief):
-    model = required("OPENAI_MODEL")
+def story_payload(brief, model=None):
+    model = model or required("OPENAI_MODEL")
     limit = os.environ.get("OPENAI_MAX_OUTPUT_TOKENS", "").strip() or "6000"
     if not limit.isdigit() or not 512 <= int(limit) <= 64000:
         raise ValueError("OPENAI_MAX_OUTPUT_TOKENS must be a whole number from 512 to 64000.")
@@ -115,8 +115,8 @@ def story_payload(brief):
     return payload
 
 
-def story_plan(brief):
-    payload = story_payload(brief)
+def story_plan(brief, model=None):
+    payload = story_payload(brief, model)
     cache = story_cache_path("openai-responses", payload)
     if (plan := cached_story(cache)) is not None:
         return plan

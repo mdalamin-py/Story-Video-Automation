@@ -186,6 +186,22 @@ $$('[data-filter]').forEach(el => el.addEventListener('click', () => {
 
 /* ---------- Create form ---------- */
 function mode() { return new FormData($('#create-form')).get('mode'); }
+// Label each story AI with its model and grey out the ones without a key in .env.
+async function loadStoryAIs() {
+  let list;
+  try { list = await api('/api/story-ais'); } catch { return; }   // API offline: keep the plain list
+  const select = $('#story-ai'), cost = {lowest: 'lowest cost', low: 'low cost', higher: 'higher cost'};
+  for (const ai of list) {
+    const option = select.querySelector(`option[value="${ai.id}"]`); if (!option) continue;
+    option.textContent = `${ai.label} · ${ai.model} · ${cost[ai.cost] || ai.cost}` + (ai.connected ? '' : ' (not connected)');
+    option.disabled = !ai.connected;
+  }
+  const names = list.filter(ai => ai.connected).map(ai => ai.label);
+  select.querySelector('option[value="auto"]').textContent = names.length ? `Auto · cheapest of ${names.join(', ')}` : 'Auto · no story AI connected yet';
+  try { const saved = localStorage.getItem('story-ai'); const o = saved && select.querySelector(`option[value="${saved}"]`); if (o && !o.disabled) select.value = saved; } catch {}
+}
+$('#story-ai').addEventListener('change', e => { try { localStorage.setItem('story-ai', e.target.value); } catch {} });
+
 function changeMode() {
   const local = mode() === 'local';
   $$('.local-field').forEach(el => el.hidden = !local);
@@ -234,7 +250,7 @@ $('#create-form').addEventListener('submit', async event => {
       const brief = {story: form.get('story'), final_changes: form.get('final_changes'), language: form.get('language'), style: form.get('style'),
         scene_count: Number(form.get('scene_count')), seconds_per_scene: Number(form.get('seconds_per_scene')), resolution: form.get('resolution'),
         export_resolution: form.get('export_resolution'), audio: form.has('audio'), burn_captions: form.has('burn_captions'),
-        made_for_kids: form.has('made_for_kids'), synthetic_disclosure: form.has('synthetic_disclosure')};
+        made_for_kids: form.has('made_for_kids'), synthetic_disclosure: form.has('synthetic_disclosure'), story_ai: form.get('story_ai')};
       result = await api('/api/jobs', {method: 'POST', body: JSON.stringify({brief, demo: form.get('mode') === 'demo'})});
     }
     await refresh(); view('library'); toast('Your story is in production.');
@@ -405,7 +421,7 @@ $$('[data-cost]').forEach(el => el.onclick = () => report('/api/provider-costs/'
 $('#load-usage').onclick = () => report('/api/provider-usage');
 
 /* ---------- Start ---------- */
-changeMode(); costEstimate();
+changeMode(); costEstimate(); loadStoryAIs();
 const VIEWS = ['overview', 'create', 'library', 'providers'];
 const hashView = () => location.hash.replace(/^#\/?/, '');
 const initial = hashView();

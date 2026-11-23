@@ -23,12 +23,13 @@ class Brief(BaseModel):
     style: str = Field(default="Cinematic natural light", min_length=1, max_length=500)
     scene_count: int = Field(default=3, ge=1, le=5)
     seconds_per_scene: int = Field(default=6, ge=4, le=12)
-    resolution: Literal["720p", "1080p"] = "1080p"
+    resolution: Literal["720p", "1080p"] = "720p"
     export_resolution: Literal["720p", "1080p", "1440p", "2160p"] = "1080p"
     audio: bool = True
     burn_captions: bool = True
     made_for_kids: bool = False
     synthetic_disclosure: bool = False
+    story_ai: Literal["auto", "openai", "claude", "gemini"] = "auto"
 
 
 class Submission(BaseModel):
@@ -56,6 +57,16 @@ def health():
 @app.get("/")
 def dashboard():
     return FileResponse(ROOT / "frontend" / "index.html")
+
+
+@app.get("/api/story-ais")
+def story_ais(_: Admin):
+    """Which story AIs have a key set (never the key itself), for the Create page picker."""
+    import sys
+    sys.path.insert(0, str(ROOT / "src"))
+    from story_ai import status
+
+    return status()
 
 
 @app.get("/api/jobs")

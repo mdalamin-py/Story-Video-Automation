@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from media import VERTICAL_SIZES, ffmpeg, render
-from providers import STORY_INSTRUCTIONS, publish_facebook, publish_youtube, required, story_plan, write_json
+from providers import STORY_INSTRUCTIONS, publish_facebook, publish_youtube, required, write_json
 
 from image_provider import image_scene, image_settings
 from speech import routed_narration, settings as speech_settings
@@ -54,6 +54,8 @@ def validate(brief, plan=None):
             raise ValueError(f"{field} must be an integer between {lower} and {upper}.")
     if brief["resolution"] not in {"720p", "1080p"}:
         raise ValueError("Muse source resolution must be 720p or 1080p.")
+    if brief.get("story_ai", "auto") not in ("auto", "openai", "claude", "gemini"):
+        raise ValueError("story_ai must be auto, openai, claude or gemini.")
     if brief.get("export_resolution", brief["resolution"]) not in VERTICAL_SIZES:
         raise ValueError("export_resolution must be one of: " + ", ".join(VERTICAL_SIZES))
     for field in ("audio", "burn_captions", "made_for_kids", "synthetic_disclosure"):
@@ -126,17 +128,19 @@ def draft(args):
     validate(brief)
     config = os.environ.get("STORY_PROVIDER_CONFIG", "").strip()
     snapshot = os.environ.get("STORY_PROVIDER_SNAPSHOT", "").strip()
+    choice = brief.get("story_ai", "auto")
     if args.demo:
         plan = demo_plan(brief)
-    elif config or snapshot:
+    elif choice == "auto" and (config or snapshot):
+        # An advanced routing file still wins when the video leaves the choice on Auto.
         from provider_router import generate_story, parse_routing
 
         routing = parse_routing(snapshot or (ROOT / config).read_text(encoding="utf-8-sig"))
-        plan = generate_story(routing, brief, STORY_INSTRUCTIONS)
+        plan = generate_story(routing, {k: v for k, v in brief.items() if k != "story_ai"}, STORY_INSTRUCTIONS)
     else:
-        if os.environ.get("STORY_BUDGET_USD"):
-            raise ValueError("Configure STORY_PROVIDER_CONFIG to enforce a story budget.")
-        plan = story_plan(brief)
+        from story_ai import generate
+
+        plan = generate(brief, STORY_INSTRUCTIONS)
     validate(brief, plan)
     folder = RUNS / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     folder.mkdir(parents=True)
@@ -248,7 +252,8 @@ def check_setup(brief_path, platform):
     platforms = PUBLISH_CREDENTIALS if platform == "both" else (platform,)
     settings = [key for target in platforms for key in PUBLISH_CREDENTIALS[target]]
     story_config = os.environ.get("STORY_PROVIDER_CONFIG", "").strip()
-    if story_config:
+    choice = load(brief_path).get("story_ai", "auto")
+    if story_config and choice == "auto":
         from provider_router import Routing
 
         try:
@@ -261,9 +266,9 @@ def check_setup(brief_path, platform):
         if not any(os.environ.get(item.key_env, "").strip() for item in candidates):
             raise ValueError("Set a credential for an eligible story provider.")
     else:
-        settings.extend(["OPENAI_API_KEY", "OPENAI_MODEL"])
-        if os.environ.get("STORY_BUDGET_USD", "").strip():
-            raise ValueError("Configure STORY_PROVIDER_CONFIG to enforce a story budget.")
+        from story_ai import candidates
+
+        candidates(choice)   # raises with the exact key to set when the chosen AI is not connected
     missing = [name for name in settings if not os.environ.get(name, "").strip()]
     if missing:
         raise ValueError("Missing settings in .env: " + ", ".join(missing))

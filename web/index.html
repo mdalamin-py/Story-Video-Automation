@@ -149,6 +149,7 @@
           <label class="local-field">Video length<select name="duration"><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="60">60 seconds</option><option value="90">90 seconds</option></select></label>
           <label class="local-field">Frame<select name="aspect"><option value="16:9">Landscape · 16:9</option><option value="9:16">Reels / Shorts · 9:16</option></select></label>
           <label class="local-field">Render quality<select name="local_size"><option value="640x360">Quick preview · 360p</option><option value="1280x720">HD · 720p</option><option value="1920x1080">Full HD · 1080p</option><option value="2560x1440">QHD · 1440p</option><option value="3840x2160">Ultra HD · 4K (slower)</option></select></label>
+          <label class="api-field" hidden>Story AI<select name="story_ai" id="story-ai"><option value="auto" selected>Auto · cheapest connected AI</option><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="claude">Claude</option></select></label>
           <label class="api-field" hidden>Scenes<input name="scene_count" type="number" min="1" max="5" value="3"></label>
           <label class="api-field" hidden>Seconds per scene<input name="seconds_per_scene" type="number" min="4" max="12" value="6"></label>
           <label class="api-field" hidden>Source resolution<select name="resolution"><option value="720p" selected>720p · about half the credits</option><option value="1080p">1080p</option></select></label>
@@ -256,7 +257,7 @@
   </div>
 </section>
 
-<footer><span>Story Studio</span><span>A little imagination goes a long way. <b>✦</b></span><span>Local workspace · Node.js + Python</span></footer>
+<footer><span>Story Studio</span><span>A little imagination goes a long way. <b>✦</b></span></footer>
 </div>
 </main>
 </div>
