@@ -24,6 +24,11 @@ test('serves the Node dashboard and rejects cross-site requests and unauthentica
  assert.equal((await f.call('/api/jobs')).status,503);
  assert.equal((await f.call('/local/jobs',{method:'POST',body:'{"prompt":""}'})).status,422);
 });
+test('explains an unreachable API instead of a raw network error',async t=>{
+ const f=await fixture(t,{apiUrl:'http://127.0.0.1:9',token:'private-server-token'});
+ const reply=await f.call('/api/providers');
+ assert.equal(reply.status,503);assert.match((await reply.json()).detail,/studio\.cmd/);
+});
 test('proxies the existing API with server-side authentication and preserves method/body',async t=>{
  let seen;
  const upstream=http.createServer(async(req,res)=>{let body='';for await(const c of req)body+=c;seen={url:req.url,method:req.method,auth:req.headers.authorization,body};res.writeHead(201,{'Content-Type':'application/json'});res.end('{"id":"test-job"}');});

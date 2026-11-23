@@ -127,7 +127,7 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
     const headers={'Authorization':'Bearer '+token};if(req.headers['content-type'])headers['Content-Type']=req.headers['content-type'];if(req.headers.range)headers.Range=req.headers.range;
     const init={method:req.method,headers,redirect:'manual',signal:AbortSignal.timeout(120000)};
     if(!['GET','HEAD'].includes(req.method)){init.body=req;init.duplex='half';}
-    const upstream=await fetch(new URL(url.pathname+url.search,apiUrl),init);
+    let upstream;try{upstream=await fetch(new URL(url.pathname+url.search,apiUrl),init);}catch{return json(res,503,{detail:'The studio API is not running. Close the studio window and start studio.cmd again.'});}
     const resultHeaders={};for(const name of ['content-type','content-length','content-range','accept-ranges','location','content-disposition'])if(upstream.headers.has(name))resultHeaders[name]=upstream.headers.get(name);
     res.writeHead(upstream.status,resultHeaders);if(upstream.body)Readable.fromWeb(upstream.body).pipe(res);else res.end();return;
    }

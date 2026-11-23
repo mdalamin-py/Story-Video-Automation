@@ -22,7 +22,8 @@ async function request(url, options = {}) {
   const response = await fetch(url, {...options, headers: {...(options.body ? {'Content-Type': 'application/json'} : {}), ...options.headers}});
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw Error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail || `Request failed (${response.status})`));
+    const detail = Array.isArray(data.detail) ? data.detail.map(d => `${(d.loc || []).slice(1).join(' › ') || 'request'}: ${d.msg}`).join('; ') : data.detail;
+    throw Error(typeof detail === 'string' && detail ? detail : `Request failed (${response.status})`);
   }
   return response;
 }
@@ -51,6 +52,7 @@ function view(name, {scroll = true} = {}) {
   if (location.hash !== '#/' + name) history.replaceState(null, '', '#/' + name);
   notice(''); if (scroll) window.scrollTo({top: 0, behavior: reducedMotion ? 'auto' : 'smooth'});
   if (name === 'overview') renderProjects();
+  if (name === 'providers') { if (!prefs.loaded) loadPreferences(false); renderStoryAIStatus(); }
 }
 $$('[data-view]').forEach(el => el.addEventListener('click', e => { e.preventDefault(); view(el.dataset.view); }));
 $$('.stats .stat').forEach((el, i) => el.style.setProperty('--i', i));
@@ -414,35 +416,77 @@ $('#publish-form').onsubmit = async e => {
 };
 
 /* ---------- Providers ---------- */
-const selectFields = {video_provider: ['Video provider', 'muse-video.com', 'runway'], video_fallback: ['Video backup', 'muse-video.com', 'runway'],
-  runway_video_model: ['Runway model', 'gen4.5', 'kling3.0_standard', 'kling3.0_pro'], image_provider: ['Illustration provider', 'openai', 'vertex', 'off'],
-  tts_provider: ['Voice provider', 'openai', 'elevenlabs']};
-const textFields = {image_model: 'Illustration model', tts_model: 'Voice model', tts_voice: 'Voice ID', tts_fallback_model: 'Backup voice model', tts_fallback_voice: 'Backup voice ID'};
-$('#provider-fields').innerHTML = Object.entries(selectFields).map(([name, [label, ...options]]) => `<label>${label}<select name="${name}"><option value="">Use server settings</option>${options.map(v => `<option>${v}</option>`).join('')}</select></label>`).join('')
-  + Object.entries(textFields).map(([name, label]) => `<label>${label}<input name="${name}" maxlength="200" placeholder="Use server settings"></label>`).join('')
-  + '<label>Story budget / job (USD)<input name="story_budget_usd" type="number" min="0" step="any" placeholder="Optional"></label>';
-$('#load-defaults').onclick = async () => {
+// Saved settings load before Save is enabled: saving a blank form would erase every saved choice.
+const prefs = {loaded: false};
+const prefForm = () => $('#provider-form');
+function prefStatus(text) { $('#prefs-status').textContent = text; }
+async function loadPreferences(showToast) {
+  prefStatus('Loading your saved settings…'); $('#save-prefs').disabled = true;
   try {
     const data = await api('/api/providers');
-    for (const [key, value] of Object.entries(data)) { const input = $('#provider-form').elements.namedItem(key); if (input) input.value = value == null ? '' : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value); }
-    toast('Saved defaults loaded.');
-  } catch (e) { notice(e.message); }
-};
-$('#provider-form').onsubmit = async e => {
-  e.preventDefault();
-  try {
-    const form = new FormData(e.currentTarget), payload = {};
-    for (const [key, value] of form) payload[key] = value.trim() ? (key === 'story_routing' ? JSON.parse(value) : key === 'story_budget_usd' ? Number(value) : value.trim()) : null;
-    await api('/api/providers', {method: 'PUT', body: JSON.stringify(payload)}); toast('Provider preferences saved.');
-  } catch (e) { notice(e.message); }
-};
-async function report(url) {
-  try { $('#provider-report').textContent = 'Checking…'; $('#provider-report').textContent = JSON.stringify(await api(url), null, 2); }
-  catch (e) { $('#provider-report').textContent = e.message; }
+    for (const [key, value] of Object.entries(data)) {
+      const input = prefForm().elements.namedItem(key);
+      if (input) input.value = value == null ? '' : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
+    }
+    prefForm().querySelector('details.advanced').open = Boolean(data.story_routing);
+    prefs.loaded = true; $('#save-prefs').disabled = false;
+    const count = Object.values(data).filter(v => v !== null && v !== '').length;
+    prefStatus(count ? `${count} saved setting${count === 1 ? '' : 's'} loaded. Blank fields use the server default from .env.`
+                     : 'Nothing saved yet: every field uses the server default from .env.');
+    if (showToast) toast('Saved settings reloaded.');
+  } catch (e) {
+    prefs.loaded = false;
+    prefStatus(`Could not load your saved settings (${e.message}). Saving is off so nothing is overwritten.`);
+  }
 }
-$$('[data-check]').forEach(el => el.onclick = () => report('/api/provider-health/' + el.dataset.check));
-$$('[data-cost]').forEach(el => el.onclick = () => report('/api/provider-costs/' + el.dataset.cost));
-$('#load-usage').onclick = () => report('/api/provider-usage');
+$('#load-defaults').onclick = () => loadPreferences(true);
+prefForm().onsubmit = async e => {
+  e.preventDefault(); notice('');
+  if (!prefs.loaded) { notice('Your saved settings have not loaded, so saving is off to avoid overwriting them. Press Reload saved settings.'); return; }
+  const payload = {};
+  for (const [key, raw] of new FormData(e.currentTarget)) {
+    const value = raw.trim();
+    if (!value) { payload[key] = null; continue; }
+    if (key === 'story_routing') {
+      try { payload[key] = JSON.parse(value); }
+      catch (err) { prefForm().querySelector('details.advanced').open = true; notice(`Story routing JSON has a typo (${err.message}). Fix it or clear the box.`); return; }
+    } else if (key === 'story_budget_usd') {
+      const dollars = Number(value);
+      if (!Number.isFinite(dollars) || dollars < 0) { notice('Story budget must be an amount in dollars, 0 or more.'); return; }
+      payload[key] = dollars;
+    } else payload[key] = value;
+  }
+  if (payload.video_provider && payload.video_provider === payload.video_fallback) { notice('Pick a different backup video provider, or No backup.'); return; }
+  const button = $('#save-prefs'); button.disabled = true;
+  try { await api('/api/providers', {method: 'PUT', body: JSON.stringify(payload)}); await loadPreferences(false); toast('Provider preferences saved.'); }
+  catch (err) { notice('Not saved: ' + err.message); }
+  finally { button.disabled = !prefs.loaded; }
+};
+
+async function renderStoryAIStatus() {
+  const list = $('#story-ai-status');
+  try {
+    const rows = await api('/api/story-ais');
+    list.innerHTML = rows.map(r => `<li class="${r.connected ? 'on' : 'off'}"><b>${escape(r.label)}</b><span>${escape(r.model)}</span><em>${r.connected ? 'Connected' : 'No key in .env'}</em></li>`).join('');
+  } catch (e) { list.innerHTML = `<li class="muted">${escape(e.message)}</li>`; }
+}
+
+// Check results as labelled rows instead of raw JSON.
+function reportHtml(data) {
+  if (Array.isArray(data)) return data.length ? data.map(reportHtml).join('<hr>') : '<p class="muted">Nothing recorded yet.</p>';
+  if (data && typeof data === 'object') return '<dl>' + Object.entries(data).map(([k, v]) =>
+    `<dt>${escape(k.replace(/_/g, ' '))}</dt><dd>${v && typeof v === 'object' ? reportHtml(v) : escape(v === null || v === '' ? '—' : String(v))}</dd>`).join('') + '</dl>';
+  return `<p>${escape(String(data))}</p>`;
+}
+async function report(url, title) {
+  const box = $('#provider-report'); box.hidden = false; box.innerHTML = `<h4>${escape(title)}</h4><p class="muted">Checking…</p>`;
+  try { box.innerHTML = `<h4>${escape(title)}</h4>` + reportHtml(await api(url)); }
+  catch (e) { box.innerHTML = `<h4>${escape(title)}</h4><p class="report-error">${escape(e.message)}</p>`; }
+}
+const label = el => el.firstChild.textContent.trim();
+$$('[data-check]').forEach(el => el.onclick = () => report('/api/provider-health/' + el.dataset.check, label(el) + ' · connection'));
+$$('[data-cost]').forEach(el => el.onclick = () => report('/api/provider-costs/' + el.dataset.cost, el.textContent.replace('→', '').trim()));
+$('#load-usage').onclick = () => report('/api/provider-usage', 'Request history');
 
 /* ---------- Start ---------- */
 changeMode(); costEstimate(); loadStoryAIs(); loadLanguages();

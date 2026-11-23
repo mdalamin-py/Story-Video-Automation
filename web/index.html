@@ -226,32 +226,70 @@
 <!-- PROVIDERS -->
 <section id="providers" class="view" hidden>
   <div class="page-heading reveal">
-    <div><div class="eyebrow">Behind the scenes</div><h1>Your creative toolkit.</h1><p>Set the defaults for connected-provider productions.</p></div>
-    <button class="secondary" id="load-defaults">↻ Load saved defaults</button>
+    <div><div class="eyebrow">Behind the scenes</div><h1>Your creative toolkit.</h1><p>Defaults for <b>Connected providers</b> videos. Each video keeps the settings it was queued with.</p></div>
+    <button class="secondary" id="load-defaults" type="button">↻ Reload saved settings</button>
   </div>
   <div class="settings-layout">
-    <form id="provider-form" class="panel reveal">
-      <div class="panel-title"><span class="number">⚙</span><div><h2>Provider preferences</h2><p>API credentials stay in your local .env file.</p></div></div>
-      <div class="field-grid" id="provider-fields"></div>
-      <label>Story routing JSON<textarea name="story_routing" rows="5" placeholder="Optional routing configuration" spellcheck="false"></textarea></label>
-      <button class="primary">Save preferences</button>
-      <p class="muted">Blank fields use server settings. These settings apply to provider mode.</p>
+    <form id="provider-form" class="panel reveal" novalidate>
+      <div class="panel-title"><span class="number">⚙</span><div><h2>Provider preferences</h2><p id="prefs-status">Loading your saved settings…</p></div></div>
+
+      <fieldset class="pref-group"><legend><span aria-hidden="true">▶</span> Video clips</legend>
+        <div class="field-grid">
+          <label>Video provider<select name="video_provider"><option value="">Server default (.env)</option><option value="muse-video.com">Muse Video</option><option value="runway">Runway</option></select></label>
+          <label>Backup if busy<select name="video_fallback"><option value="">No backup</option><option value="muse-video.com">Muse Video</option><option value="runway">Runway</option></select></label>
+          <label>Runway model <small class="hint">used when Runway is picked</small><select name="runway_video_model"><option value="">Server default (Gen-4.5)</option><option value="gen4.5">Gen-4.5 · 720p, 2–10 s</option><option value="kling3.0_standard">Kling 3.0 Standard · 720p + audio</option><option value="kling3.0_pro">Kling 3.0 Pro · 1080p + audio</option></select></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="pref-group"><legend><span aria-hidden="true">▣</span> Illustrations</legend>
+        <div class="field-grid">
+          <label>Illustration provider<select name="image_provider"><option value="">Server default (.env)</option><option value="openai">OpenAI images</option><option value="vertex">Google Vertex (Imagen)</option><option value="off">Off · use video clips</option></select></label>
+          <label>Illustration model<input name="image_model" maxlength="200" placeholder="Server default, e.g. gpt-image-1"></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="pref-group"><legend><span aria-hidden="true">◉</span> Voice</legend>
+        <div class="field-grid">
+          <label>Voice provider<select name="tts_provider"><option value="">Server default (.env)</option><option value="openai">OpenAI speech</option><option value="elevenlabs">ElevenLabs</option></select></label>
+          <label>Voice model<input name="tts_model" maxlength="200" placeholder="Server default"></label>
+          <label>Voice ID<input name="tts_voice" maxlength="200" placeholder="Server default"></label>
+          <label>Backup voice model<input name="tts_fallback_model" maxlength="200" placeholder="Server default"></label>
+          <label>Backup voice ID<input name="tts_fallback_voice" maxlength="200" placeholder="Server default"></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="pref-group"><legend><span aria-hidden="true">✦</span> Story</legend>
+        <div class="field-grid">
+          <label>Story budget per video (USD)<input name="story_budget_usd" type="number" min="0" step="0.01" placeholder="No limit"></label>
+        </div>
+        <details class="advanced"><summary>Advanced · story routing JSON</summary>
+          <p class="muted">Most people never need this: pick the story AI on the Create page. Routing lets one video try several OpenAI-compatible providers in order, each bound to a <code>STUDIO_LLM_KEY_…</code> credential and <code>STUDIO_LLM_URL_…</code> endpoint in .env.</p>
+          <textarea name="story_routing" rows="6" placeholder='{"policy": "lowest_cost", "max_estimated_usd": 0.1, "providers": [...]}' spellcheck="false"></textarea>
+        </details>
+      </fieldset>
+
+      <div class="form-actions"><button class="primary" id="save-prefs" disabled>Save preferences</button><span class="muted">Keys stay in your local .env file and are never shown here.</span></div>
     </form>
     <aside>
       <div class="panel reveal">
+        <h3>Story AIs</h3>
+        <p class="muted">Which story AIs have a key in .env. Nothing is sent to them from here.</p>
+        <ul class="ai-status" id="story-ai-status"><li class="muted">Checking…</li></ul>
+      </div>
+      <div class="panel reveal">
         <h3>Connection checks</h3>
-        <p class="muted">Run checks only when you need them.</p>
+        <p class="muted">Each check makes one small read-only request with your key.</p>
         <div class="provider-checks">
-          <button data-check="openai">OpenAI <span>Test connection ↗</span></button>
-          <button data-check="elevenlabs">ElevenLabs <span>Check subscription ↗</span></button>
-          <button data-check="runway">Runway <span>Check account ↗</span></button>
-          <button data-check="muse">Muse Video <span>Check account ↗</span></button>
-          <button data-check="vertex">Vertex AI <span>Check account ↗</span></button>
+          <button data-check="openai" type="button">OpenAI <span>Test connection ↗</span></button>
+          <button data-check="elevenlabs" type="button">ElevenLabs <span>Check subscription ↗</span></button>
+          <button data-check="runway" type="button">Runway <span>Check account ↗</span></button>
+          <button data-check="muse" type="button">Muse Video <span>Check account ↗</span></button>
+          <button data-check="vertex" type="button">Vertex AI <span>Check account ↗</span></button>
         </div>
-        <button class="secondary full" id="load-usage">View request history</button>
-        <button class="text-button" data-cost="openai">Read OpenAI costs →</button>
-        <button class="text-button" data-cost="runway">Read Runway credits →</button>
-        <pre id="provider-report" aria-live="polite"></pre>
+        <button class="secondary full" id="load-usage" type="button">View request history</button>
+        <button class="text-button" data-cost="openai" type="button">Read OpenAI costs →</button>
+        <button class="text-button" data-cost="runway" type="button">Read Runway credits →</button>
+        <div id="provider-report" class="report" aria-live="polite" hidden></div>
       </div>
     </aside>
   </div>
