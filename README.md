@@ -117,7 +117,7 @@ Features exposed in the dashboard:
 - Preview stills, contact sheets, up-to-30-second draft and full MP4 export.
 - Synthesized effects, normalized voice/effects mixing, optional licensed background score.
 - Four shaped caption treatments, UTF-8 SRT, beat table, credits and media verification report.
-- Landscape/portrait drafts and exports through 4K; Windows serial rendering. Higher resolutions require more time and memory.
+- Landscape/portrait drafts and exports through 4K, rendered in parallel on as many workers as fit in memory (`RENDER_WORKERS` in `.env` sets a fixed number). Higher resolutions require more time and memory.
 
 Use **Open project folder** to add assets, recordings or `audio/music.mp3` before
 continuing. Recorded takes use the take names in `script.json`; recorded lines use
@@ -132,7 +132,7 @@ The workflow follows the skill's checks automatically:
   in the review window with a **Fix these with Codex** button.
 - `tools/review_look.py` renders one contact sheet per camera move (found with the engine's own
   speed test) and flags spotlight drift, dark frames and empty frames before you approve the look.
-- Drafts render at 1280x720 (720x1280 portrait), as the skill specifies; the final uses your size.
+- Drafts render at 1280x720 (720x1280 portrait), as the skill specifies, or at the final size when that is smaller; the final uses your size.
 - Recorded takes surface `split_takes.py`'s suspect-cut flags for listening.
 - A failed stage shows the last lines of its own output instead of a bare exit code.
 
@@ -141,6 +141,17 @@ bounded encoder threads and a portable sound filter. Word timing is approximate
 letter-share timing, as in the source engine; it is not forced audio alignment.
 `split_takes.py` and `captions.py` count letters in any script, so Bangla recorded
 takes are timed and flagged correctly (they previously counted only A–Z).
+
+## Connect your AI accounts
+
+Open **Providers & settings** in the dashboard. Every AI the studio can use has a card; press **Connect**.
+
+- **Paste a key** (OpenAI, Claude, Runway, Muse, ElevenLabs): the dialog links to the page where you sign in and make a key. The key is tested with one free, read-only request before it is saved to `.env`, and the page only ever shows its last four characters.
+- **Sign in with Google**: Gemini opens Google AI Studio, where your Google account makes a key. Google Vertex AI uses a real Google sign-in through the free [Google Cloud CLI](https://cloud.google.com/sdk/docs/install), so you never paste access tokens that expire every hour.
+- **Claude**: a Claude.ai Pro or Max sign-in cannot be used by other apps. Make an API key in the [Claude Console](https://console.anthropic.com/settings/keys); it is billed per use, separately from a Claude.ai subscription.
+- **Codex** signs in with your ChatGPT account inside the Codex app, and **Edge voices** are free with nothing to connect.
+
+New keys apply to the next video without restarting the studio.
 
 ## Choosing the story AI
 
@@ -212,7 +223,7 @@ Replace `RUN_NAME` with the name printed by the first command. Open `runs/RUN_NA
 ## Use your own story and make last-minute changes
 
 1. Enter your story or idea in `story` in `input/brief.json`. Put last-minute instructions in `final_changes`. Use the same file to adjust the language, visual style, duration, audio, and captions. The default output is vertical 1080p.
-2. Copy `.env.example` to `.env`. Set your OpenAI API key and a Responses API model available to your account, or configure the [multi-provider story router](documentation/implementation.md). FFmpeg must be available through PATH, `FFMPEG_PATH`, or Python's `imageio-ffmpeg` package. Burning captions requires FFmpeg with libass.
+2. Copy `.env.example` to `.env`. Set your OpenAI API key and a Responses API model available to your account, or configure the [multi-provider story router](documentation/implementation.md). FFmpeg and FFprobe must be available through PATH, `FFMPEG_PATH`, or an FFmpeg build unzipped into `tools/ffmpeg` (`winget install Gyan.FFmpeg` installs one). Burning captions requires FFmpeg with libass.
 3. Run `.\run.cmd draft` and review `runs/RUN_NAME/plan.json`. Edit scenes, dialogue, captions, or post copy directly in the plan. To regenerate the story with new instructions, edit the brief and run `draft` again.
 4. Run `.\run.cmd render RUN_NAME`. If your video service is **muse-video.com**, set `MUSE_PROVIDER=muse-video.com` and `MUSE_API_KEY`. Other Muse services require their own adapter. Regenerating edited scenes may use credits. To supply your own MP4, run `.\run.cmd render RUN_NAME --video "D:\my-video.mp4"`.
 5. Review the visuals, audio, and pronunciation in `preview.mp4`. Set `made_for_kids` and `synthetic_disclosure` according to your content before uploading.

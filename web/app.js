@@ -463,13 +463,87 @@ prefForm().onsubmit = async e => {
   finally { button.disabled = !prefs.loaded; }
 };
 
+/* ---------- AI account connections ---------- */
+const connections = {services: [], google: {}, current: null};
+const GOOGLE_G = '<svg viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.3h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.7H.9v2.3A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.9 10.8a5.4 5.4 0 0 1 0-3.5V5H.9a9 9 0 0 0 0 8.1l3-2.3z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.5 1.4l2.6-2.6A9 9 0 0 0 .9 5l3 2.3C4.6 5.2 6.6 3.6 9 3.6z"/></svg>';
 async function renderStoryAIStatus() {
-  const list = $('#story-ai-status');
+  const box = $('#connection-groups');
   try {
-    const rows = await api('/api/story-ais');
-    list.innerHTML = rows.map(r => `<li class="${r.connected ? 'on' : 'off'}"><b>${escape(r.label)}</b><span>${escape(r.model)}</span><em>${r.connected ? 'Connected' : 'No key in .env'}</em></li>`).join('');
-  } catch (e) { list.innerHTML = `<li class="muted">${escape(e.message)}</li>`; }
+    const data = await api('/api/connections');
+    connections.services = data.services; connections.google = data.google;
+    const ready = data.services.filter(r => r.connected).length;
+    $('#connections-summary').textContent = `${ready} of ${data.services.length} connected. Sign in with Google or paste a key; keys stay in .env on this PC and are tested before they are saved.`;
+    const g = $('#google-state'); g.hidden = false;
+    g.className = 'google-state ' + (data.google.signed_in ? 'on' : '');
+    g.innerHTML = GOOGLE_G + (data.google.signed_in ? 'Signed in with Google' : data.google.cli ? 'Google: not signed in' : 'Google sign-in: Cloud CLI not installed');
+    const groups = ['Story', 'Video', 'Images', 'Voice'].filter(g => data.services.some(r => r.group === g));
+    box.innerHTML = groups.map(group => `<div class="connection-group"><h4>${escape(group)}</h4><div class="connection-cards">` +
+      data.services.filter(r => r.group === group).map(r => `
+        <article class="connection-card ${r.connected ? 'on' : ''}" data-service="${escape(r.id)}">
+          <span class="service-mark" aria-hidden="true">${escape(r.label.slice(0, 1))}</span>
+          <div class="service-text"><b>${escape(r.label)}</b><small>${escape(r.use)}</small>
+            ${r.fields ? r.fields.filter(f => f.saved).map(f => `<small class="saved-key">${escape(f.saved)}</small>`).join('') : `<small>${escape(r.fixed)}</small>`}</div>
+          <span class="service-state">${r.connected ? 'Connected' : 'Not connected'}</span>
+          ${r.fields ? `<button type="button" class="${r.connected ? 'secondary' : 'primary'} small" data-connect="${escape(r.id)}">${r.connected ? 'Manage' : r.google ? GOOGLE_G + 'Connect' : 'Connect'}</button>` : ''}
+        </article>`).join('') + '</div></div>').join('');
+    $$('[data-connect]').forEach(b => b.onclick = () => openConnect(b.dataset.connect));
+  } catch (e) { box.innerHTML = `<p class="muted">${escape(e.message)}</p>`; }
 }
+
+function connectResult(text, ok) {
+  const el = $('#connect-result'); el.hidden = !text; el.textContent = text; el.className = 'connect-result ' + (ok ? 'ok' : 'bad');
+}
+function openConnect(id) {
+  const r = connections.services.find(s => s.id === id); connections.current = r;
+  $('#connect-group').textContent = r.group + ' · ' + r.use;
+  $('#connect-title').textContent = (r.connected ? 'Manage ' : 'Connect ') + r.label;
+  $('#connect-steps').innerHTML = r.steps.map(step => `<li>${escape(step)}</li>`).join('');
+  const signin = r.google === 'signin'
+    ? `<button type="button" class="google-button" id="google-sign-in">${GOOGLE_G}Sign in with Google</button>`
+    : `<a class="${r.google ? 'google-button' : 'secondary'}" href="${escape(r.get_key)}" target="_blank" rel="noopener noreferrer">${r.google ? GOOGLE_G + 'Sign in with Google to get a key' : 'Open ' + escape(r.label) + ' to get a key ↗'}</a>`;
+  $('#connect-signin').innerHTML = signin + (r.google === 'signin' && connections.google.signed_in ? '<span class="signed">✓ Signed in</span>' : '');
+  $('#connect-note').hidden = !r.note; $('#connect-note').textContent = r.note;
+  $('#connect-fields').innerHTML = r.fields.map(f => `<label>${escape(f.label)}
+      <input name="${escape(f.env)}" ${f.secret ? 'type="password" autocomplete="off"' : 'type="text"'} spellcheck="false"
+        value="${escape(f.value || '')}" placeholder="${escape(f.saved ? 'Saved ' + f.saved + ' · leave blank to keep it' : f.default || (f.optional ? 'Optional' : 'Paste here'))}"></label>`).join('');
+  $('#connect-save-untested').hidden = !r.testable;
+  $('#connect-remove').hidden = !r.connected;
+  connectResult('');
+  const button = $('#google-sign-in');
+  if (button) button.onclick = async () => {
+    try { const reply = await api('/api/connections/google/sign-in', {method: 'POST'}); connectResult(reply.message, true); waitForGoogle(); }
+    catch (e) { connectResult(e.message, false); }
+  };
+  $('#connect-dialog').showModal();
+  ($('#connect-fields input:not([value])') || $('#connect-fields input'))?.focus();
+}
+async function waitForGoogle() {
+  for (let i = 0; i < 40 && $('#connect-dialog').open; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const data = await api('/api/connections').catch(() => null);
+    if (data?.google.signed_in) { connections.google = data.google; connectResult('Signed in with Google. Now enter your project and save.', true); renderStoryAIStatus(); return; }
+  }
+}
+async function saveConnection(test) {
+  const r = connections.current, values = {};
+  $$('#connect-fields input').forEach(i => { values[i.name] = i.value.trim(); });
+  const save = $('#connect-save'); save.disabled = true; connectResult(test ? 'Testing with ' + r.label + '…' : 'Saving…', true);
+  try {
+    const reply = await api('/api/connections/' + r.id, {method: 'PUT', body: JSON.stringify({values, test})});
+    connectResult(reply.message, reply.saved);
+    if (reply.saved) { toast(r.label + ' connected.'); await renderStoryAIStatus(); if (typeof loadStoryAIs === 'function') loadStoryAIs();
+      setTimeout(() => $('#connect-dialog').close(), 900); }
+  } catch (e) { connectResult(e.message, false); }
+  finally { save.disabled = false; }
+}
+$('#connect-form').onsubmit = e => { e.preventDefault(); saveConnection(true); };
+$('#connect-save-untested').onclick = () => saveConnection(false);
+$('#close-connect').onclick = () => $('#connect-dialog').close();
+$('#connect-remove').onclick = async () => {
+  const r = connections.current;
+  try { const reply = await api('/api/connections/' + r.id, {method: 'DELETE'}); toast(reply.message); $('#connect-dialog').close(); await renderStoryAIStatus(); if (typeof loadStoryAIs === 'function') loadStoryAIs(); }
+  catch (e) { connectResult(e.message, false); }
+};
 
 // Check results as labelled rows instead of raw JSON.
 function reportHtml(data) {

@@ -229,6 +229,14 @@
     <div><div class="eyebrow">Behind the scenes</div><h1>Your creative toolkit.</h1><p>Defaults for <b>Connected providers</b> videos. Each video keeps the settings it was queued with.</p></div>
     <button class="secondary" id="load-defaults" type="button">↻ Reload saved settings</button>
   </div>
+  <section class="panel connections reveal" aria-labelledby="connections-title">
+    <div class="connections-head">
+      <div><h2 id="connections-title">Connect your AI accounts</h2>
+        <p class="muted" id="connections-summary">Sign in with Google or paste a key. Keys stay in .env on this PC and are tested before they are saved.</p></div>
+      <div class="google-state" id="google-state" hidden></div>
+    </div>
+    <div id="connection-groups" class="connection-groups"><p class="muted">Loading…</p></div>
+  </section>
   <div class="settings-layout">
     <form id="provider-form" class="panel reveal" novalidate>
       <div class="panel-title"><span class="number">⚙</span><div><h2>Provider preferences</h2><p id="prefs-status">Loading your saved settings…</p></div></div>
@@ -272,11 +280,6 @@
     </form>
     <aside>
       <div class="panel reveal">
-        <h3>Story AIs</h3>
-        <p class="muted">Which story AIs have a key in .env. Nothing is sent to them from here.</p>
-        <ul class="ai-status" id="story-ai-status"><li class="muted">Checking…</li></ul>
-      </div>
-      <div class="panel reveal">
         <h3>Connection checks</h3>
         <p class="muted">Each check makes one small read-only request with your key.</p>
         <div class="provider-checks">
@@ -300,6 +303,24 @@
 </main>
 </div>
 
+<dialog id="connect-dialog" aria-labelledby="connect-title" class="connect-dialog">
+  <form id="connect-form" method="dialog" novalidate>
+    <div class="dialog-heading">
+      <div><span class="eyebrow" id="connect-group">Connect</span><h2 id="connect-title">Connect</h2></div>
+      <button type="button" class="icon-button" id="close-connect" aria-label="Close">×</button>
+    </div>
+    <ol class="connect-steps" id="connect-steps"></ol>
+    <div class="connect-signin" id="connect-signin"></div>
+    <p class="connect-note" id="connect-note" hidden></p>
+    <div id="connect-fields" class="connect-fields"></div>
+    <p class="connect-result" id="connect-result" role="status" hidden></p>
+    <div class="dialog-actions">
+      <button class="primary" id="connect-save" type="submit">Test &amp; save</button>
+      <button class="text-button" id="connect-save-untested" type="button">Save without testing</button>
+      <button class="text-button danger" id="connect-remove" type="button" hidden>Disconnect</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="preview-dialog" aria-labelledby="preview-title">
   <div class="dialog-heading">
     <div><span class="eyebrow">Project details</span><h2 id="preview-title">Your story</h2></div>

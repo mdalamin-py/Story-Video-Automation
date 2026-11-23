@@ -69,6 +69,63 @@ def story_ais(_: Admin):
     return status()
 
 
+class Connection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    values: dict[str, Annotated[str, Field(max_length=4096)]] = Field(default_factory=dict, max_length=6)
+    test: bool = True
+
+
+@app.get("/api/connections")
+def connections(_: Admin):
+    """Every AI service with its sign-in steps and whether it is connected; saved keys only as the last 4 characters."""
+    from backend.connections import status
+
+    return status()
+
+
+@app.post("/api/connections/google/sign-in")
+def google_sign_in(_: Admin):
+    import sys
+    sys.path.insert(0, str(ROOT / "src"))
+    from google_auth import start_sign_in
+
+    if not start_sign_in():
+        raise HTTPException(409, "Google sign-in needs the free Google Cloud CLI. Install it from "
+                                 "cloud.google.com/sdk/docs/install, then press Sign in with Google again.")
+    return {"message": "Google's sign-in page is opening in your browser. Choose your account, then come back here."}
+
+
+@app.put("/api/connections/{service}")
+def save_connection(service: str, connection: Connection, _: Admin):
+    from backend.connections import SERVICES, connect
+
+    if service not in SERVICES:
+        raise HTTPException(404, "Unknown service.")
+    try:
+        return connect(service, connection.values, connection.test)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from None
+
+
+@app.delete("/api/connections/{service}")
+def remove_connection(service: str, _: Admin):
+    from backend.connections import SERVICES, disconnect
+
+    if service not in SERVICES:
+        raise HTTPException(404, "Unknown service.")
+    return disconnect(service)
+
+
+@app.get("/api/ai-services")
+def ai_services(_: Admin):
+    """Every AI service the studio can use and whether it is set up (never a key), for the Providers page."""
+    import sys
+    sys.path.insert(0, str(ROOT / "src"))
+    from ai_services import status
+
+    return status()
+
+
 @app.get("/api/jobs")
 def jobs(_: Admin):
     return get_jobs()

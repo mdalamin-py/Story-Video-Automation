@@ -16,7 +16,52 @@ HELPERS = ROOT / 'tools/windows-bangla'
 LOOK_REVIEW = ROOT / 'tools/review_look.py'
 FINAL = 'out/final-video.mp4'      # projects made before multi-language support used out/final-bangla.mp4
 LOOKS = {'studio', 'wall', 'slate', 'charcoal', 'blueprint', 'paper', 'night'}
+LEGACY_RUNTIME = r'C:\Users\HP\Documents\Codex\2026-11-22\d-video-maker-cinematic-skill\work'
 WAITING = {'AWAITING_SCRIPT', 'AWAITING_LOOK', 'AWAITING_DRAFT'}
+
+def ffmpeg_dir():
+    """Folder holding ffmpeg and ffprobe: FFMPEG_PATH from .env, then tools/ffmpeg in this project,
+    then PATH, then the runtime this PC was first set up with (STUDIO_RUNTIME)."""
+    exe = '.exe' if os.name == 'nt' else ''
+    configured = os.environ.get('FFMPEG_PATH', '').strip().strip('"')
+    candidates = [Path(configured).parent] if configured else []
+    candidates += [ROOT/'tools/ffmpeg/bin', ROOT/'tools/ffmpeg']
+    on_path = shutil.which('ffmpeg')
+    if on_path:
+        candidates.append(Path(on_path).parent)
+    candidates.append(Path(os.environ.get('STUDIO_RUNTIME', LEGACY_RUNTIME))/'win32')
+    return next((d for d in candidates if (d/f'ffmpeg{exe}').is_file() and (d/f'ffprobe{exe}').is_file()), None)
+
+def add_ffmpeg_to_path():
+    found = ffmpeg_dir()
+    if found and str(found) not in os.environ.get('PATH', '').split(os.pathsep):
+        os.environ['PATH'] = str(found) + os.pathsep + os.environ.get('PATH', '')
+    return found
+
+_CODEX = []
+
+def codex_cli():
+    """The Codex command line: CODEX_PATH in .env, then PATH, then the installed Codex app.
+    Windows does not let ordinary programs list the WindowsApps folder, so the app's folder
+    is asked from Windows (Get-AppxPackage) instead of searched for."""
+    configured = os.environ.get('CODEX_PATH', '').strip().strip('"')
+    if configured:
+        return configured if Path(configured).is_file() else None
+    if _CODEX:
+        return _CODEX[0]
+    found = shutil.which('codex')
+    if not found and os.name == 'nt':
+        try:
+            located = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command',
+                                      "(Get-AppxPackage -Name 'OpenAI.Codex').InstallLocation"],
+                                     capture_output=True, text=True, timeout=20).stdout.split()
+            exe = Path(' '.join(located)) / 'app/resources/codex.exe' if located else None
+            found = str(exe) if exe and exe.is_file() else None
+        except (OSError, subprocess.SubprocessError):
+            found = None
+    if found:
+        _CODEX.append(found)
+    return found
 
 def read(path, default=None):
     if not path.exists():
@@ -86,12 +131,7 @@ class Pipeline:
         self.planner = planner or self.generate_plan
         os.environ['CINEMATIC_REPO'] = str(ROOT)
         os.environ['PYTHONUTF8'] = '1'
-        # Prefer configured/installed tools. Keep compatibility with this PC's tested runtime.
-        fallback = Path(r'C:\Users\HP\Documents\Codex\2026-11-22\d-video-maker-cinematic-skill\work\win32')
-        configured = os.environ.get('FFMPEG_PATH')
-        bin_dir = Path(configured).parent if configured else fallback
-        if bin_dir.exists():
-            os.environ['PATH'] = str(bin_dir) + os.pathsep + os.environ.get('PATH','')
+        add_ffmpeg_to_path()
 
     def save(self, status=None, stage=None, error=None):
         if status:
@@ -161,11 +201,7 @@ class Pipeline:
         return script
 
     def generate_plan(self):
-        import shutil
-        cli=shutil.which('codex')
-        if not cli and os.name=='nt':
-            found=sorted(Path(r'C:\Program Files\WindowsApps').glob('OpenAI.Codex_*/app/resources/codex.exe'))
-            cli=str(found[-1]) if found else None
+        cli=codex_cli()
         if not cli:
             raise RuntimeError('Codex CLI is missing. Install/sign in to Codex before generating a script.')
         request=(self.folder/'user-prompt.txt').read_text(encoding='utf-8')
@@ -314,7 +350,8 @@ Finish by describing the plan briefly. Never print credentials.'''
     def render(self, name, seconds=None, audio=None):
         w,h=map(int,self.config['size'].split('x'))
         # The skill drafts at 1280x720 whatever the final size: sharp enough to judge, quick to render.
-        size=('1280x720' if w>=h else '720x1280') if seconds else self.config['size']
+        # Never larger than the final film: a 640x360 film gets a 640x360 draft.
+        size=(('1280x720' if w>=h else '720x1280') if w*h>1280*720 else self.config['size']) if seconds else self.config['size']
         args=['--project',self.folder,'--size',size,'--out',self.folder/'out'/name]
         if seconds:
             args+=['--seconds',seconds]

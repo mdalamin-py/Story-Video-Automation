@@ -24,7 +24,11 @@ def image_settings():
             raise ValueError("Invalid Vertex project, region, or model identifier.")
     endpoint = (f"https://{region}-aiplatform.googleapis.com/v1/projects/{project}"
                 f"/locations/{region}/publishers/google/models/{model}:predict")
-    return model, required("VERTEX_ACCESS_TOKEN"), endpoint
+    from google_auth import access_token
+    token = access_token()
+    if not token:
+        raise ValueError("Connect Google Vertex: press Sign in with Google on the Providers page, or set VERTEX_ACCESS_TOKEN in .env.")
+    return model, token, endpoint
 
 
 def image_scene(scene, brief, folder, number, config):

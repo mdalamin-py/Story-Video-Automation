@@ -14,9 +14,9 @@ import tempfile
 REPO = Path(os.environ.get('CINEMATIC_REPO', str(Path(__file__).resolve().parents[2])))
 sys.path.insert(0, str(REPO / 'src'))
 from multilingual import caption_font, wrap_unspaced
-WORK = Path(r'C:\Users\HP\Documents\Codex\2026-11-22\d-video-maker-cinematic-skill\work')
-if (WORK / 'win32').exists():
-    os.environ['PATH'] = str(WORK / 'win32') + os.pathsep + os.environ['PATH']
+sys.path.insert(0, str(REPO))
+from backend.cinematic import add_ffmpeg_to_path
+add_ffmpeg_to_path()
 
 def run(args, **kwargs):
     subprocess.run([str(x) for x in args], check=True, **kwargs)
@@ -36,6 +36,22 @@ def srt(project):
     out.write_text('\n'.join(rows), encoding='utf-8')
     return out
 
+async def speak(edge_tts, text, voice_id, rate, mp3, ident, attempts=4):
+    """The free Edge service sometimes drops a request; wait and try again before giving up."""
+    for attempt in range(1, attempts + 1):
+        try:
+            await edge_tts.Communicate(text, voice_id, rate=rate).save(str(mp3))
+            if mp3.exists() and mp3.stat().st_size > 0:
+                return
+            raise edge_tts.exceptions.NoAudioReceived('empty audio file')
+        except Exception as exc:  # network errors come from aiohttp as well as edge_tts
+            if attempt == attempts:
+                raise SystemExit(f'Edge voice gave no audio for line {ident} after {attempts} tries '
+                                 f'(voice {voice_id}): {exc}. Check the internet connection and that the voice '
+                                 'matches the language, then press Retry.') from None
+            print(f'Line {ident}: no audio yet ({exc}); trying again.', flush=True)
+            await asyncio.sleep(2 * attempt)
+
 async def voice(a, project):
     import edge_tts
     script = json.loads((project/'script.json').read_text(encoding='utf-8-sig'))
@@ -53,9 +69,18 @@ async def voice(a, project):
             if not spoken:
                 raise ValueError(f'Empty narration: {ident}')
             mp3 = lines_dir/f'seg{ident:02}.mp3'
-            print(f'Generating line {ident}...', flush=True)
-            await edge_tts.Communicate(spoken, a.voice, rate=a.rate).save(str(mp3))
-            run(['ffmpeg','-y','-v','error','-i',mp3,'-ar','48000','-ac','1',lines_dir/f'seg{ident:02}.wav'])
+            wav = lines_dir/f'seg{ident:02}.wav'
+            # A line already spoken with the same words, voice and rate is reused, so a retry
+            # after a dropped request does not regenerate the whole narration.
+            key = lines_dir/f'seg{ident:02}.key'
+            want = json.dumps([spoken, a.voice, a.rate], ensure_ascii=False)
+            if wav.exists() and key.exists() and key.read_text(encoding='utf-8') == want:
+                print(f'Line {ident} unchanged, reusing it.', flush=True)
+            else:
+                print(f'Generating line {ident}...', flush=True)
+                await speak(edge_tts, spoken, a.voice, a.rate, mp3, ident)
+                run(['ffmpeg','-y','-v','error','-i',mp3,'-ar','48000','-ac','1',wav])
+                key.write_text(want, encoding='utf-8')
             segments.append(dict(id=ident,scene=take['take'],caption=line.get('text',spoken),vo=spoken,gap_after=line.get('gap_after',0.55)))
     (project/'audio/segments.json').write_text(json.dumps({'segments':segments},ensure_ascii=True,indent=2),encoding='utf-8')
     env = dict(os.environ, PYTHONUTF8='1')

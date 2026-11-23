@@ -13,7 +13,7 @@ from backend.database import database
 from backend.preferences import read_preferences
 from backend.storage import archive_preview
 
-from backend.environment import ROOT, load_env
+from backend.environment import ROOT, env_file_values, load_env
 
 load_env()
 DATA = Path(os.environ.get("STUDIO_DATA_DIR", ROOT / "runs" / "studio")).resolve()
@@ -86,9 +86,14 @@ def lookup(job_id):
         return dict(row) if row else None
 
 
+def fresh_env():
+    """Keys connected on the Providers page after the studio started (STUDIO_RELOAD_ENV=0 turns it off)."""
+    return env_file_values() if os.environ.get("STUDIO_RELOAD_ENV", "1") != "0" else {}
+
+
 def invoke(*arguments, overrides=None):
     result = subprocess.run([sys.executable, str(ROOT / "src" / "main.py"), *arguments],
-                            cwd=ROOT, env={**os.environ, **(overrides or {}), "STUDIO_USAGE_DB": str(DATA / "usage.sqlite3")}, capture_output=True, encoding="utf-8",
+                            cwd=ROOT, env={**os.environ, **fresh_env(), **(overrides or {}), "STUDIO_USAGE_DB": str(DATA / "usage.sqlite3")}, capture_output=True, encoding="utf-8",
                             errors="replace", timeout=7200)
     if result.returncode:
         # Provider errors and subprocess arguments can contain private data.

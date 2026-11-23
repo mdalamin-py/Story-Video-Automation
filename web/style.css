@@ -579,3 +579,63 @@ details.advanced code{font-family:var(--mono);font-size:12px;background:var(--su
 .report dd dl{grid-template-columns:auto 1fr}
 .report hr{border:0;border-top:1px solid var(--line);margin:10px 0}
 .report-error{color:var(--bad);margin:0}
+
+/* Your AI services */
+.ai-groups h4{margin:16px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ai-groups .ai-status{margin-top:8px}
+.ai-groups .ai-status li{grid-template-columns:1fr auto}
+.ai-groups .ai-status li div{min-width:0;display:grid;gap:2px}
+.ai-groups .ai-status li small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.ai-groups .ai-status li small.setup{font-family:var(--mono);font-size:11.5px}
+.ai-groups .ai-status li.off b{color:var(--muted)}
+
+/* ---------- Connect your AI accounts ---------- */
+.connections{margin-bottom:24px}
+.connections-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.connections-head h2{font-size:24px}
+.connections-head p{margin:6px 0 0;max-width:62ch}
+.google-state{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;font-size:13.5px;font-weight:600;color:var(--muted);background:var(--surface-2)}
+.google-state.on{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,var(--line))}
+.google-state svg,.google-button svg,.primary svg{width:18px;height:18px;flex:none}
+.connection-group h4{margin:22px 0 10px;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.connection-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.connection-card{position:relative;display:grid;grid-template-columns:44px 1fr auto;grid-template-areas:"mark text text" "state state action";align-items:center;gap:12px 14px;
+  padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);transition:transform .25s var(--ease),border-color .25s,box-shadow .25s;animation:rise .45s var(--ease) both}
+.connection-card:hover{transform:translateY(-2px);border-color:var(--line-strong);box-shadow:0 14px 30px -22px #000}
+.connection-card.on{border-color:color-mix(in srgb,var(--good) 35%,var(--line))}
+.service-mark{grid-area:mark;display:grid;place-items:center;width:44px;height:44px;border-radius:12px;font-family:var(--display);font-size:20px;font-weight:700;color:#fff;background:#5b5f6e}
+.service-text{grid-area:text;display:grid;gap:2px;min-width:0}
+.service-text b{font-size:16px}
+.service-text small{color:var(--muted);font-size:13px}
+.service-text .saved-key{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+.service-state{grid-area:state;font-size:12.5px;font-weight:650;color:var(--muted)}
+.service-state:before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:var(--line-strong);vertical-align:1px}
+.connection-card.on .service-state{color:var(--good)}
+.connection-card.on .service-state:before{background:var(--good);box-shadow:0 0 0 4px var(--good-soft)}
+.connection-card button{grid-area:action;justify-self:end}
+.primary.small,.secondary.small{padding:8px 14px;font-size:14px;border-radius:10px}
+[data-service="gemini"] .service-mark{background:linear-gradient(135deg,#4285f4,#9b72cb)}
+[data-service="openai"] .service-mark{background:#10a37f}
+[data-service="claude"] .service-mark{background:#d97757}
+[data-service="codex"] .service-mark{background:#202123}
+[data-service="muse"] .service-mark{background:linear-gradient(135deg,#ff5f6d,#ffc371)}
+[data-service="runway"] .service-mark{background:#111;border:1px solid #333}
+[data-service="vertex"] .service-mark{background:linear-gradient(135deg,#34a853,#4285f4)}
+[data-service="elevenlabs"] .service-mark{background:#000;border:1px solid #333}
+[data-service="edge"] .service-mark{background:linear-gradient(135deg,#0c59a4,#2bc4a5)}
+
+.connect-dialog{width:min(560px,94vw)}
+.connect-steps{margin:4px 0 16px;padding-left:22px;display:grid;gap:6px;color:var(--ink-2);font-size:15px}
+.connect-signin{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.connect-signin .signed{color:var(--good);font-weight:650;font-size:14px}
+.google-button{display:inline-flex;align-items:center;gap:10px;padding:11px 18px;border-radius:12px;border:1px solid #dadce0;background:#fff;color:#1f1f1f;
+  font:600 15px/1.2 var(--display);text-decoration:none;cursor:pointer;transition:box-shadow .2s,transform .2s}
+.google-button:hover{box-shadow:0 6px 18px -8px #0006;transform:translateY(-1px)}
+.connect-note{margin:0 0 14px;padding:12px 14px;border-radius:10px;background:var(--warn-soft);color:var(--ink-2);font-size:14px;line-height:1.5}
+.connect-fields{display:grid;gap:12px}
+.connect-fields input{font-family:var(--mono);font-size:14px}
+.connect-result{margin:14px 0 0;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;animation:rise .3s var(--ease)}
+.connect-result.ok{background:var(--good-soft);color:var(--good)}
+.connect-result.bad{background:color-mix(in srgb,var(--rec) 14%,transparent);color:var(--rec)}
+.text-button.danger{color:var(--rec);margin-left:auto}
+@media (max-width:560px){.connection-cards{grid-template-columns:1fr}.connections-head h2{font-size:21px}}

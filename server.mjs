@@ -8,7 +8,8 @@ import {spawn} from 'node:child_process';
 import {Readable} from 'node:stream';
 
 export const ROOT=path.dirname(fileURLToPath(import.meta.url));
-const SHARED=String.raw`C:\Users\HP\Documents\Codex\2026-11-22\d-video-maker-cinematic-skill\work`;
+// The Python runtime this PC was first set up with; a project .venv or STUDIO_PYTHON takes priority.
+const SHARED=process.env.STUDIO_RUNTIME||String.raw`C:\Users\HP\Documents\Codex\2026-11-22\d-video-maker-cinematic-skill\work`;
 export function pythonFor(root){return process.env.STUDIO_PYTHON || [path.join(root,'.venv','Scripts','python.exe'),path.join(SHARED,'cinematic-venv','Scripts','python.exe')].find(existsSync) || 'python';}
 // Finished films and subtitles have neutral names; projects from before multi-language support keep theirs.
 const finalVideo=folder=>[path.join(folder,'out','final-video.mp4'),path.join(folder,'out','final-bangla.mp4')].find(existsSync)||path.join(folder,'out','final-video.mp4');

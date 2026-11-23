@@ -104,8 +104,9 @@ def test_lint_warnings_reach_the_reviewer_and_the_planner(tmp_path):
     assert prompts==[['line 1: no hero','line 2: digits in the spoken text']]
 
 
-def test_draft_renders_at_720p_and_final_at_the_chosen_size(tmp_path):
-    for size,draft in (('640x360','1280x720'),('3840x2160','1280x720'),('1080x1920','720x1280')):
+def test_draft_renders_at_most_720p_and_final_at_the_chosen_size(tmp_path):
+    # A draft is never larger than the film: a 640x360 film renders a 640x360 draft.
+    for size,draft in (('640x360','640x360'),('360x640','360x640'),('1280x720','1280x720'),('3840x2160','1280x720'),('1080x1920','720x1280')):
         p=pipeline(tmp_path/size,audio=False,size=size)
         calls=[]
         p.runner=lambda script,args:calls.append(args)
@@ -137,3 +138,60 @@ def test_edits_during_preview_require_plan_recheck(tmp_path):
     with pytest.raises(ValueError,match='changed during preview'):
         p.run('preview')
     assert p.state['status']=='FAILED'
+
+
+def test_ffmpeg_is_found_from_env_project_folder_or_path(tmp_path, monkeypatch):
+    from backend import cinematic
+    exe = '.exe' if sys.platform == 'win32' else ''
+    tools = tmp_path/'bin'; tools.mkdir()
+    for name in ('ffmpeg', 'ffprobe'):
+        (tools/f'{name}{exe}').write_bytes(b'')
+    monkeypatch.setenv('FFMPEG_PATH', str(tools/f'ffmpeg{exe}'))
+    assert cinematic.ffmpeg_dir() == tools
+    (tools/f'ffprobe{exe}').unlink()          # ffprobe is needed too, so this folder no longer counts
+    assert cinematic.ffmpeg_dir() != tools
+
+
+def load_voice_tool():
+    spec = importlib.util.spec_from_file_location('voice_tool', Path(__file__).resolve().parents[1]/'tools/windows-bangla/bangla_tools.py')
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
+
+
+class FakeEdge:
+    """Stands in for edge_tts: drops the first `failures` requests like the free service sometimes does."""
+    class exceptions:
+        class NoAudioReceived(Exception):
+            pass
+
+    def __init__(self, failures):
+        self.calls = 0; self.failures = failures
+        edge = self
+
+        class Communicate:
+            def __init__(self, text, voice, rate):
+                pass
+
+            async def save(self, path):
+                edge.calls += 1
+                if edge.calls <= edge.failures:
+                    raise edge.exceptions.NoAudioReceived('No audio was received.')
+                Path(path).write_bytes(b'mp3')
+        self.Communicate = Communicate
+
+
+def test_edge_voice_retries_a_dropped_line(tmp_path, monkeypatch):
+    import asyncio
+    tool = load_voice_tool()
+    real_sleep = asyncio.sleep; monkeypatch.setattr(tool.asyncio, 'sleep', lambda s: real_sleep(0))
+    edge = FakeEdge(failures=2)
+    asyncio.run(tool.speak(edge, 'Hello', 'en-US-AndrewNeural', '+0%', tmp_path/'a.mp3', 1))
+    assert edge.calls == 3 and (tmp_path/'a.mp3').read_bytes() == b'mp3'
+
+
+def test_edge_voice_gives_a_clear_message_when_it_keeps_failing(tmp_path, monkeypatch):
+    import asyncio
+    tool = load_voice_tool()
+    real_sleep = asyncio.sleep; monkeypatch.setattr(tool.asyncio, 'sleep', lambda s: real_sleep(0))
+    with pytest.raises(SystemExit, match='line 7 after 4 tries.*Retry'):
+        asyncio.run(tool.speak(FakeEdge(failures=99), 'Hello', 'hi-IN-SwaraNeural', '+0%', tmp_path/'a.mp3', 7))

@@ -95,6 +95,12 @@ def media_account(provider):
     }
     name, key_name = settings[provider]
     key = os.environ.get(key_name, "").strip()
+    if provider == "vertex" and not key:
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+        from google_auth import access_token
+        key = access_token()
     report = {"provider": name, "status": "not configured"}
     if not key:
         return report

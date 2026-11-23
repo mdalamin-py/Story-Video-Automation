@@ -121,3 +121,22 @@ def test_dashboard_endpoint_reports_story_ais_without_keys(monkeypatch):
     reply = client.get("/api/story-ais", headers={"Authorization": "Bearer " + "t" * 32})
     assert reply.status_code == 200 and "secret-gemini" not in reply.text
     assert {row["id"]: row["connected"] for row in reply.json()} == {"gemini": True, "openai": False, "claude": False}
+
+
+def test_dashboard_lists_every_ai_service_without_keys(monkeypatch):
+    from fastapi.testclient import TestClient
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from backend.api import app
+    for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "RUNWAY_API_KEY", "ELEVENLABS_API_KEY", "VERTEX_ACCESS_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("STUDIO_ADMIN_TOKEN", "t" * 32)
+    monkeypatch.setenv("GEMINI_API_KEY", "secret-gemini"); monkeypatch.setenv("MUSE_API_KEY", "secret-muse")
+    client = TestClient(app)
+    assert client.get("/api/ai-services").status_code == 401
+    reply = client.get("/api/ai-services", headers={"Authorization": "Bearer " + "t" * 32})
+    assert reply.status_code == 200 and "secret-" not in reply.text
+    rows = {row["id"]: row for row in reply.json()}
+    assert {"gemini", "openai", "claude", "codex", "muse", "runway", "openai-images", "vertex",
+            "edge", "openai-speech", "elevenlabs"} <= set(rows)
+    assert rows["muse"]["connected"] and not rows["runway"]["connected"] and rows["edge"]["connected"]
+    assert rows["runway"]["setup"] == "RUNWAY_API_KEY"
