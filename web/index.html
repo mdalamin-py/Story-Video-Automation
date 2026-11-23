@@ -96,10 +96,10 @@
   </div>
 
   <div class="stats">
-    <div class="stat reveal"><span>Total projects</span><strong id="total-count" data-count>0</strong><small>Your story collection</small><i class="stat-icon" aria-hidden="true">▦</i></div>
-    <div class="stat reveal"><span>In the making</span><strong id="active-count" data-count>0</strong><small>Writing &amp; rendering</small><i class="stat-icon violet" aria-hidden="true">◷</i></div>
-    <div class="stat reveal"><span>Ready to watch</span><strong id="ready-count" data-count>0</strong><small>Finished films</small><i class="stat-icon good" aria-hidden="true">✓</i></div>
-    <div class="stat reveal"><span>Needs attention</span><strong id="failed-count" data-count>0</strong><small>Open the job to see why</small><i class="stat-icon warn" aria-hidden="true">!</i></div>
+    <button type="button" class="stat reveal" data-go-filter="all"><span>Total projects</span><strong id="total-count" data-count>0</strong><small>Your story collection</small><i class="stat-icon" aria-hidden="true">▦</i></button>
+    <button type="button" class="stat reveal" data-go-filter="active"><span>In the making</span><strong id="active-count" data-count>0</strong><small>Writing, reviews &amp; rendering</small><i class="stat-icon violet" aria-hidden="true">◷</i></button>
+    <button type="button" class="stat reveal" data-go-filter="ready"><span>Ready to watch</span><strong id="ready-count" data-count>0</strong><small>Finished films</small><i class="stat-icon good" aria-hidden="true">✓</i></button>
+    <button type="button" class="stat reveal" data-go-filter="failed"><span>Needs attention</span><strong id="failed-count" data-count>0</strong><small>Open the job to see why</small><i class="stat-icon warn" aria-hidden="true">!</i></button>
   </div>
 
   <div class="section-heading reveal">
@@ -128,6 +128,7 @@
     </div>
     <span class="step-pill">01 / Create</span>
   </div>
+  <div id="readiness" class="readiness" role="status" hidden></div>
 
   <form id="create-form" class="create-layout">
     <div class="form-main">
@@ -148,7 +149,8 @@
           <label>Visual mood<select name="style"><option>Cinematic, warm natural light</option><option>Playful illustrated storytelling</option><option>Minimal editorial, clean typography</option><option>Moody documentary, evidence board</option><option>Modern product film, studio lighting</option></select></label>
           <label class="local-field">Video length<select name="duration"><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="60">60 seconds</option><option value="90">90 seconds</option></select></label>
           <label class="local-field">Frame<select name="aspect"><option value="16:9">Landscape · 16:9</option><option value="9:16">Reels / Shorts · 9:16</option></select></label>
-          <label class="local-field">Render quality<select name="local_size"><option value="640x360">Quick preview · 360p</option><option value="1280x720">HD · 720p</option><option value="1920x1080">Full HD · 1080p</option><option value="2560x1440">QHD · 1440p</option><option value="3840x2160">Ultra HD · 4K (slower)</option></select></label>
+          <label class="local-field">Narration voice<select name="voice" id="voice"><option value="bn-BD-NabanitaNeural">Nabanita · female</option><option value="bn-BD-PradeepNeural">Pradeep · male</option></select></label>
+          <label class="local-field">Render quality<select name="local_size"><option value="640x360">Quick preview · 360p</option><option value="1280x720" selected>HD · 720p (recommended)</option><option value="1920x1080">Full HD · 1080p</option><option value="2560x1440">QHD · 1440p</option><option value="3840x2160">Ultra HD · 4K (slower)</option></select></label>
           <label class="api-field" hidden>Story AI<select name="story_ai" id="story-ai"><option value="auto" selected>Auto · cheapest connected AI</option><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="claude">Claude</option></select></label>
           <label class="api-field" hidden>Scenes<input name="scene_count" type="number" min="1" max="5" value="3"></label>
           <label class="api-field" hidden>Seconds per scene<input name="seconds_per_scene" type="number" min="4" max="12" value="6"></label>
@@ -167,7 +169,7 @@
       </div>
 
       <div class="panel cinematic-controls local-field reveal">
-        <div class="panel-title"><span class="number">03</span><div><h2>Cinematic production</h2><p>The cinematic-film engine, with a guided review workflow.</p></div></div>
+        <div class="panel-title"><span class="number">03</span><div><h2>Pick a look</h2><p>The colours and style of your film. You can change it again after you see a preview.</p></div></div>
         <p class="sub-label">Film look</p>
         <div class="look-grid" role="radiogroup" aria-label="Film look">
           <label class="look-card"><input type="radio" name="look" value="studio" checked><span class="swatch sw-studio"></span><b>Studio</b><small>Bright editorial</small></label>
@@ -178,10 +180,11 @@
           <label class="look-card"><input type="radio" name="look" value="paper"><span class="swatch sw-paper"></span><b>Paper</b><small>Illustrated explainer</small></label>
           <label class="look-card"><input type="radio" name="look" value="night"><span class="swatch sw-night"></span><b>Night</b><small>Technology &amp; space</small></label>
         </div>
+        <details class="more-options">
+        <summary>More options <small>captions style, your own recordings, sound, photos, maps</small></summary>
         <div class="field-grid">
-          <label>Caption treatment<select name="caption_style"><option value="clean">Clean</option><option value="highlighter">Highlighter</option><option value="paper">Paper</option><option value="redbar">Red bar</option></select></label>
-          <label>Voice source<select name="voice_source"><option value="edge">Online speech · Edge TTS</option><option value="takes">My recorded takes · audio/takes</option><option value="lines">My recorded lines · audio/lines</option></select></label>
-          <label>Narration voice<select name="voice" id="voice"><option value="bn-BD-NabanitaNeural">Nabanita · female</option><option value="bn-BD-PradeepNeural">Pradeep · male</option></select></label>
+          <label>Caption style<select name="caption_style"><option value="clean">Clean</option><option value="highlighter">Highlighter</option><option value="paper">Paper</option><option value="redbar">Red bar</option></select></label>
+          <label>Voice source<select name="voice_source"><option value="edge">Free online voice (recommended)</option><option value="takes">My recorded takes · audio/takes</option><option value="lines">My recorded lines · audio/lines</option></select></label>
         </div>
         <div class="check-list">
           <label class="check"><input name="review" type="checkbox" checked> Review the script, look and draft before the final export</label>
@@ -191,6 +194,7 @@
           <label class="check"><input name="music" type="checkbox"> Mix my licensed score from audio/music.mp3</label>
         </div>
         <p class="muted">Open the project folder after planning to add your own photos, recordings or score. Archive downloads record their credits. Every stage saves its progress, so a failed stage can be retried.</p>
+        </details>
       </div>
     </div>
 
@@ -198,11 +202,12 @@
       <div class="panel sticky reveal">
         <div class="tiny-label">Your production</div>
         <h3>Choose your workflow</h3>
-        <label class="mode-card"><input type="radio" name="mode" value="local" checked><div><strong>✦ Local cinematic</strong><p>Plan, voice, maps, motion, sound and export with the cinematic-film engine. Uses your Codex sign-in.</p></div></label>
-        <label class="mode-card"><input type="radio" name="mode" value="demo"><div><strong>◈ Demo preview</strong><p>Test the pipeline with sample colored scenes. No API keys.</p></div></label>
-        <label class="mode-card"><input type="radio" name="mode" value="provider"><div><strong>▣ Connected providers</strong><p>Generate media with configured services. Provider credits may apply.</p></div></label>
+        <label class="mode-card"><input type="radio" name="mode" value="local" checked><div><strong>✦ Cinematic film <span class="mode-tag free">Free</span></strong><p>Codex writes the script; the voice, animation, sound and captions are made on this PC. You approve each step.</p></div></label>
+        <label class="mode-card"><input type="radio" name="mode" value="demo"><div><strong>◈ Quick test <span class="mode-tag free">Free</span></strong><p>A short sample with coloured scenes, to check that everything works. No accounts needed.</p></div></label>
+        <label class="mode-card"><input type="radio" name="mode" value="provider"><div><strong>▣ AI video clips <span class="mode-tag paid">Paid</span></strong><p>Real footage from Muse Video or Runway, using your connected accounts and their credits.</p></div></label>
         <dl class="production-summary"><dt>Output</dt><dd id="output-summary">Cinematic animation + MP4</dd><dt>Saved to</dt><dd>This computer</dd><dt>Estimated cost</dt><dd id="cost-estimate">Codex planning only</dd></dl>
         <button class="primary full big" id="submit-video">✦ Create my video <span aria-hidden="true">→</span></button>
+        <p class="shortcut-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> also creates it · your draft is kept if you close the page</p>
         <p class="privacy-note" id="mode-note">Internet required. Your prompt goes to Codex and narration text to the speech service. Nothing is published automatically.</p>
       </div>
       <div class="help-card reveal"><span aria-hidden="true">✧</span><h3>A small tip, a better film.</h3><p>Tell us who’s in the story, what happens, and how it ends. Add a mood to make it yours.</p></div>
@@ -226,8 +231,7 @@
 <!-- PROVIDERS -->
 <section id="providers" class="view" hidden>
   <div class="page-heading reveal">
-    <div><div class="eyebrow">Behind the scenes</div><h1>Your creative toolkit.</h1><p>Defaults for <b>Connected providers</b> videos. Each video keeps the settings it was queued with.</p></div>
-    <button class="secondary" id="load-defaults" type="button">↻ Reload saved settings</button>
+    <div><div class="eyebrow">Behind the scenes</div><h1>Your AI accounts.</h1><p>Connect the services you want to use. Free cinematic films need only Codex; everything else is optional.</p></div>
   </div>
   <section class="panel connections reveal" aria-labelledby="connections-title">
     <div class="connections-head">
@@ -237,32 +241,34 @@
     </div>
     <div id="connection-groups" class="connection-groups"><p class="muted">Loading…</p></div>
   </section>
+  <details class="advanced-settings reveal" id="advanced-settings">
+  <summary><span><b>Advanced settings</b><small>Which service to use first, models, backups and spending limit for AI video clips. Optional: leave them on Automatic.</small></span></summary>
   <div class="settings-layout">
-    <form id="provider-form" class="panel reveal" novalidate>
+    <form id="provider-form" class="panel" novalidate>
       <div class="panel-title"><span class="number">⚙</span><div><h2>Provider preferences</h2><p id="prefs-status">Loading your saved settings…</p></div></div>
 
       <fieldset class="pref-group"><legend><span aria-hidden="true">▶</span> Video clips</legend>
         <div class="field-grid">
-          <label>Video provider<select name="video_provider"><option value="">Server default (.env)</option><option value="muse-video.com">Muse Video</option><option value="runway">Runway</option></select></label>
+          <label>Video provider<select name="video_provider"><option value="">Automatic</option><option value="muse-video.com">Muse Video</option><option value="runway">Runway</option></select></label>
           <label>Backup if busy<select name="video_fallback"><option value="">No backup</option><option value="muse-video.com">Muse Video</option><option value="runway">Runway</option></select></label>
-          <label>Runway model <small class="hint">used when Runway is picked</small><select name="runway_video_model"><option value="">Server default (Gen-4.5)</option><option value="gen4.5">Gen-4.5 · 720p, 2–10 s</option><option value="kling3.0_standard">Kling 3.0 Standard · 720p + audio</option><option value="kling3.0_pro">Kling 3.0 Pro · 1080p + audio</option></select></label>
+          <label>Runway model <small class="hint">used when Runway is picked</small><select name="runway_video_model"><option value="">Automatic (Gen-4.5)</option><option value="gen4.5">Gen-4.5 · 720p, 2–10 s</option><option value="kling3.0_standard">Kling 3.0 Standard · 720p + audio</option><option value="kling3.0_pro">Kling 3.0 Pro · 1080p + audio</option></select></label>
         </div>
       </fieldset>
 
       <fieldset class="pref-group"><legend><span aria-hidden="true">▣</span> Illustrations</legend>
         <div class="field-grid">
-          <label>Illustration provider<select name="image_provider"><option value="">Server default (.env)</option><option value="openai">OpenAI images</option><option value="vertex">Google Vertex (Imagen)</option><option value="off">Off · use video clips</option></select></label>
-          <label>Illustration model<input name="image_model" maxlength="200" placeholder="Server default, e.g. gpt-image-1"></label>
+          <label>Illustration provider<select name="image_provider"><option value="">Automatic</option><option value="openai">OpenAI images</option><option value="vertex">Google Vertex (Imagen)</option><option value="off">Off · use video clips</option></select></label>
+          <label>Illustration model<input name="image_model" maxlength="200" placeholder="Automatic, e.g. gpt-image-1"></label>
         </div>
       </fieldset>
 
       <fieldset class="pref-group"><legend><span aria-hidden="true">◉</span> Voice</legend>
         <div class="field-grid">
-          <label>Voice provider<select name="tts_provider"><option value="">Server default (.env)</option><option value="openai">OpenAI speech</option><option value="elevenlabs">ElevenLabs</option></select></label>
-          <label>Voice model<input name="tts_model" maxlength="200" placeholder="Server default"></label>
-          <label>Voice ID<input name="tts_voice" maxlength="200" placeholder="Server default"></label>
-          <label>Backup voice model<input name="tts_fallback_model" maxlength="200" placeholder="Server default"></label>
-          <label>Backup voice ID<input name="tts_fallback_voice" maxlength="200" placeholder="Server default"></label>
+          <label>Voice provider<select name="tts_provider"><option value="">Automatic</option><option value="openai">OpenAI speech</option><option value="elevenlabs">ElevenLabs</option></select></label>
+          <label>Voice model<input name="tts_model" maxlength="200" placeholder="Automatic"></label>
+          <label>Voice ID<input name="tts_voice" maxlength="200" placeholder="Automatic"></label>
+          <label>Backup voice model<input name="tts_fallback_model" maxlength="200" placeholder="Automatic"></label>
+          <label>Backup voice ID<input name="tts_fallback_voice" maxlength="200" placeholder="Automatic"></label>
         </div>
       </fieldset>
 
@@ -276,10 +282,10 @@
         </details>
       </fieldset>
 
-      <div class="form-actions"><button class="primary" id="save-prefs" disabled>Save preferences</button><span class="muted">Keys stay in your local .env file and are never shown here.</span></div>
+      <div class="form-actions"><button class="primary" id="save-prefs" disabled>Save preferences</button><button class="secondary" id="load-defaults" type="button">↻ Undo unsaved changes</button></div>
     </form>
     <aside>
-      <div class="panel reveal">
+      <div class="panel">
         <h3>Connection checks</h3>
         <p class="muted">Each check makes one small read-only request with your key.</p>
         <div class="provider-checks">
@@ -296,6 +302,7 @@
       </div>
     </aside>
   </div>
+  </details>
 </section>
 
 <footer><span>Story Studio</span><span>A little imagination goes a long way. <b>✦</b></span></footer>
@@ -332,6 +339,7 @@
     <a id="download-video" class="primary" download="story-video.mp4" hidden>Download video ↓</a>
     <a id="download-srt" class="secondary" download hidden>Subtitles ↓</a>
     <button id="job-action" class="secondary" hidden></button>
+    <button id="delete-project" class="text-button danger" type="button" hidden>Delete project</button>
   </div>
   <section id="cinematic-review" hidden>
     <ol class="workflow-stages" id="workflow-stages"></ol>

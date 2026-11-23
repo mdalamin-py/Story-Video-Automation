@@ -40,6 +40,18 @@ def add_ffmpeg_to_path():
 
 _CODEX = []
 
+def codex_failure(log):
+    """A plain-language reason for a failed Codex run, instead of its command line."""
+    text=log[-800:].lower()      # only the end: earlier lines are Codex's own work, which may mention anything
+    if any(k in text for k in ('not logged in','please log in','codex login','sign in','unauthorized','401 ')):
+        return 'Codex is not signed in. Open the Codex app, sign in with your ChatGPT account, then press Retry.'
+    if any(k in text for k in ('usage limit','rate limit','429','quota','too many requests')):
+        return 'Codex has reached its usage limit for now. Wait a while (or check your ChatGPT plan), then press Retry.'
+    if any(k in text for k in ('network error','connection refused','connection reset','error sending request','timed out','dns error')):
+        return 'Codex could not reach the internet. Check the connection, then press Retry.'
+    last=[line.strip() for line in log.splitlines() if line.strip()][-1:] or ['no details']
+    return 'Codex could not write the script. Press Retry; if it fails again, open the Production log. Last message: '+last[0][:300]
+
 def codex_cli():
     """The Codex command line: CODEX_PATH in .env, then PATH, then the installed Codex app.
     Windows does not let ordinary programs list the WindowsApps folder, so the app's folder
@@ -237,8 +249,10 @@ Finish by describing the plan briefly. Never print credentials.'''
         command=[cli,'exec','--sandbox','workspace-write','-C',str(ROOT),'--color','never','-o',str(self.folder/'result.txt')]
         command+=codex_options()
         with (self.folder/'run.log').open('a',encoding='utf-8') as log:
-            subprocess.run([*command,'-'],input=prompt,
-                           encoding='utf-8',stdout=log,stderr=subprocess.STDOUT,check=True,cwd=ROOT)
+            done=subprocess.run([*command,'-'],input=prompt,
+                                encoding='utf-8',stdout=log,stderr=subprocess.STDOUT,cwd=ROOT)
+        if done.returncode:
+            raise RuntimeError(codex_failure((self.folder/'run.log').read_text(encoding='utf-8',errors='replace')[-6000:]))
 
     def lint(self):
         """Warnings from the Lint section make_beats.py appends to beats.md."""

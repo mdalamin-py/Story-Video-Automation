@@ -639,3 +639,46 @@ details.advanced code{font-family:var(--mono);font-size:12px;background:var(--su
 .connect-result.bad{background:color-mix(in srgb,var(--rec) 14%,transparent);color:var(--rec)}
 .text-button.danger{color:var(--rec);margin-left:auto}
 @media (max-width:560px){.connection-cards{grid-template-columns:1fr}.connections-head h2{font-size:21px}}
+
+/* ---------- Usability: clickable counters, readiness, shortcuts ---------- */
+button.stat{display:block;width:100%;text-align:left;color:var(--ink);cursor:pointer}
+button.stat:hover .stat-icon{transform:scale(1.08)}
+.stat-icon{transition:transform .3s var(--spring)}
+.readiness{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 22px;padding:14px 18px;border-radius:12px;font-size:15px;
+  border:1px solid var(--line);background:var(--surface);animation:rise .4s var(--ease)}
+.readiness.ok{border-color:color-mix(in srgb,var(--good) 40%,transparent);background:var(--good-soft)}
+.readiness.ok strong{color:var(--good)}
+.readiness.warn{border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:var(--warn-soft)}
+.readiness.warn strong{color:var(--warn);display:block;margin-bottom:4px}
+.readiness ul{margin:0;padding-left:20px;color:var(--ink-2)}
+.readiness b{color:var(--ink)}
+.readiness-actions{display:flex;gap:10px;flex-wrap:wrap}
+.shortcut-hint{margin-top:10px;font-size:12px;color:var(--muted);text-align:center}
+kbd{font-family:var(--mono);font-size:12px;padding:1px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:5px;background:var(--surface-2);color:var(--ink-2)}
+.notice-action{margin-left:8px;padding:4px 12px;border-radius:8px;background:var(--bad);color:#fff;font-size:14px;font-weight:650}
+#delete-project.armed{color:#fff;background:var(--rec);padding:8px 14px;border-radius:10px;text-decoration:none}
+
+/* ---------- Friendlier pages: plain errors, fewer visible options ---------- */
+#job-state.bad{color:var(--bad)}
+#job-state details.tech{margin-top:10px;border:0;background:none}
+#job-state details.tech summary{padding:0;font-size:13px;font-weight:600;color:var(--muted);justify-content:flex-start;gap:6px}
+#job-state details.tech pre{margin:8px 0 0;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-word;color:var(--muted)}
+.mode-tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:20px;font-size:12px;font-weight:650;vertical-align:1px}
+.mode-tag.free{color:var(--good);background:var(--good-soft)}
+.mode-tag.paid{color:var(--warn);background:var(--warn-soft)}
+.more-options,.advanced-settings{margin-top:20px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.more-options>summary,.advanced-settings>summary{cursor:pointer;list-style:none;padding:14px 18px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:12px}
+.more-options>summary::-webkit-details-marker,.advanced-settings>summary::-webkit-details-marker{display:none}
+.more-options>summary:before,.advanced-settings>summary:before{content:'+';flex:none;width:26px;height:26px;display:grid;place-items:center;border-radius:8px;
+  background:var(--accent-soft);color:var(--accent);font-size:18px;transition:transform .3s var(--ease)}
+.more-options[open]>summary:before,.advanced-settings[open]>summary:before{transform:rotate(45deg)}
+.more-options>summary small,.advanced-settings>summary small{display:block;font-size:13px;font-weight:400;color:var(--muted)}
+.more-options>summary small{display:inline;margin-left:4px}
+.more-options>summary:hover,.advanced-settings>summary:hover{color:var(--accent)}
+.more-options[open]{padding-bottom:18px}
+.more-options>:not(summary){margin-left:18px;margin-right:18px}
+.advanced-settings{margin-top:24px;background:var(--surface)}
+.advanced-settings[open]>summary{border-bottom:1px solid var(--line)}
+.advanced-settings .settings-layout{padding:20px}
+.advanced-settings .panel{box-shadow:none}
+.form-actions #load-defaults{margin-left:10px}

@@ -88,3 +88,20 @@ test('cinematic stages require the correct approval and expose review artifacts'
   await waitFor(states[action]);
  }
 });
+
+test('a project can be deleted when it is not running, and two quick submissions start only one film',async t=>{
+ let release;const wait=new Promise(r=>release=r);
+ const f=await fixture(t,{runJob:async folder=>{await wait;await mkdir(path.join(folder,'out'));await writeFile(path.join(folder,'out','final-video.mp4'),Buffer.from('film'));}});
+ const send=()=>f.call('/local/jobs',{method:'POST',body:JSON.stringify({prompt:'Twice',options:{language:'Hindi · हिन्दी',duration:30}})});
+ const replies=await Promise.all([send(),send()]);
+ assert.deepEqual(replies.map(r=>r.status).sort(),[201,409]);
+ const {id}=await replies.find(r=>r.status===201).json();
+ assert.equal((await f.call(`/local/jobs/${id}`,{method:'DELETE'})).status,409);
+ release();let row;
+ for(let i=0;i<50;i++){[row]=await(await f.call('/local/jobs')).json();if(row.state==='READY_TO_PUBLISH')break;await new Promise(r=>setTimeout(r,10));}
+ assert.equal(row.language,'Hindi · हिन्दी');assert.equal(row.duration,30);
+ assert.equal((await f.call(`/local/jobs/${id}`,{method:'GET'})).status,405);
+ assert.equal((await f.call(`/local/jobs/${id}`,{method:'DELETE'})).status,200);
+ assert.equal((await(await f.call('/local/jobs')).json()).length,0);
+ assert.equal((await f.call(`/local/jobs/${id}`,{method:'DELETE'})).status,404);
+});

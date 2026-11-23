@@ -5,7 +5,10 @@ import {randomBytes} from 'node:crypto';
 import path from 'node:path';
 import {ROOT,pythonFor} from './server.mjs';
 
-try{for(const line of (await readFile(path.join(ROOT,'.env'),'utf8')).split(/\r?\n/)){const m=/^\s*([A-Z_][A-Z_0-9]*)\s*=\s*(.*?)\s*$/.exec(line);if(m&&!Object.hasOwn(process.env,m[1]))process.env[m[1]]=m[2].replace(/^(['"])(.*)\1$/,'$2');}}catch(e){if(e.code!=='ENOENT')throw e;}
+const fromFile=[];
+try{for(const line of (await readFile(path.join(ROOT,'.env'),'utf8')).split(/\r?\n/)){const m=/^\s*([A-Z_][A-Z_0-9]*)\s*=\s*(.*?)\s*$/.exec(line);if(m&&!Object.hasOwn(process.env,m[1])){process.env[m[1]]=m[2].replace(/^(['"])(.*)\1$/,'$2');fromFile.push(m[1]);}}}catch(e){if(e.code!=='ENOENT')throw e;}
+// Tell the Python side which keys came from .env, so a blank .env line never hides a Windows environment key.
+process.env.STUDIO_ENV_FILE_KEYS=[...new Set([...(process.env.STUDIO_ENV_FILE_KEYS||'').split(',').filter(Boolean),...fromFile])].join(',');
 function port(preferred){return new Promise((resolve,reject)=>{const s=net.createServer();s.once('error',e=>{if(['EADDRINUSE','EACCES'].includes(e.code))port(0).then(resolve,reject);else reject(e);});s.listen(preferred,'127.0.0.1',()=>{const n=s.address().port;s.close(()=>resolve(n));});});}
 const python=pythonFor(ROOT),children=[];let stopping=false;
 function child(command,args,env){const p=spawn(command,args,{cwd:ROOT,env,stdio:'inherit',windowsHide:true});p.on('error',e=>{console.error(e.message);stop(1);});p.on('exit',code=>{if(!stopping){console.error('A studio service stopped.');stop(code||1);}});children.push(p);return p;}

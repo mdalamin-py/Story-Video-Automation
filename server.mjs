@@ -1,11 +1,11 @@
 import http from 'node:http';
-import {readFile,stat,mkdir,readdir,writeFile} from 'node:fs/promises';
+import {readFile,stat,mkdir,readdir,writeFile,rm,rename} from 'node:fs/promises';
 import {createReadStream,existsSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {spawn} from 'node:child_process';
-import {Readable} from 'node:stream';
+import {Readable,pipeline} from 'node:stream';
 
 export const ROOT=path.dirname(fileURLToPath(import.meta.url));
 // The Python runtime this PC was first set up with; a project .venv or STUDIO_PYTHON takes priority.
@@ -14,6 +14,8 @@ export function pythonFor(root){return process.env.STUDIO_PYTHON || [path.join(r
 // Finished films and subtitles have neutral names; projects from before multi-language support keep theirs.
 const finalVideo=folder=>[path.join(folder,'out','final-video.mp4'),path.join(folder,'out','final-bangla.mp4')].find(existsSync)||path.join(folder,'out','final-video.mp4');
 const subtitleFile=folder=>[path.join(folder,'out','captions.srt'),path.join(folder,'out','captions.bn.srt')].find(existsSync)||path.join(folder,'out','captions.srt');
+// A project's name is the start of the story, without the settings the dashboard appends to the prompt.
+const cleanTitle=text=>String(text||'').split(/\s*Director notes:/)[0].replace(/\s+/g,' ').trim().slice(0,90)||'Untitled film';
 const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
 async function body(req){const chunks=[];let size=0;for await(const c of req){size+=c.length;if(size>160000)throw Object.assign(Error('Request is too large'),{status:413});chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw Object.assign(Error('Invalid JSON'),{status:400});}}
 async function media(req,res,file){
@@ -24,12 +26,18 @@ async function media(req,res,file){
   if(m[1]&&m[2])end=Math.min(end,Number(m[2]));
   if(start>end||start>=info.size){res.writeHead(416,{'Content-Range':`bytes */${info.size}`});return res.end();}status=206;}
  res.writeHead(status,{'Content-Type':'video/mp4','Accept-Ranges':'bytes','Content-Length':end-start+1,...(status===206?{'Content-Range':`bytes ${start}-${end}/${info.size}`}:{})});
- if(req.method==='HEAD')return res.end();createReadStream(file,{start,end}).pipe(res);
+ if(req.method==='HEAD')return res.end();pipeline(createReadStream(file,{start,end}),res,()=>{});
 }
 export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,token=process.env.STUDIO_ADMIN_TOKEN,runJob}={}){
  const session=randomBytes(32).toString('hex'),running=new Map();const jobsRoot=path.join(root,'runs','local');
  const readJSON=async(file,fallback={})=>{try{return JSON.parse(await readFile(file,'utf8'));}catch{return fallback;}};
- const saveRow=(folder,row)=>writeFile(path.join(folder,'dashboard-job.json'),JSON.stringify(row,null,2));
+ // Write then rename, so the library never reads a half-written status file. Windows refuses the
+ // rename for a moment while a reader has the file open, so it is retried briefly.
+ async function saveRow(folder,row){
+  const file=path.join(folder,'dashboard-job.json'),temporary=file+'.'+randomUUID().slice(0,8)+'.tmp';
+  await writeFile(temporary,JSON.stringify(row,null,2));
+  for(let attempt=0;;attempt++){try{return await rename(temporary,file);}catch(e){if(attempt>=20||!['EPERM','EACCES','EBUSY'].includes(e.code)){await rm(temporary,{force:true});throw e;}await new Promise(r=>setTimeout(r,25));}}
+ }
  async function launchStage(id,folder,row,action='prepare'){
   running.set(id,true);row.state='RUNNING';row.error=null;await saveRow(folder,row);
   const finish=async(code,error)=>{
@@ -38,7 +46,8 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
    row.error=error||pipeline.error||(row.state==='FAILED'?'Production stopped. Read the production log.':null);
    row.stage=pipeline.stage;running.delete(id);await saveRow(folder,row);
   };
-  if(runJob){Promise.resolve().then(()=>runJob(folder,row,action)).then(()=>finish(0),e=>finish(1,e.message));return;}
+  if(runJob){Promise.resolve().then(()=>runJob(folder,row,action)).then(()=>finish(0),e=>finish(1,e.message))
+   .catch(e=>{console.error('Could not save production status:',e.message);running.delete(id);});return;}
   const child=spawn(pythonFor(root),['-X','utf8',path.join(root,'tools','dashboard_job.py'),folder,action],{cwd:root,env:{...process.env,PYTHONUTF8:'1'},windowsHide:true,stdio:['ignore','pipe','pipe']});
   running.set(id,child);let logs='';const append=c=>{logs=(logs+c.toString()).slice(-160000);};child.stdout.on('data',append);child.stderr.on('data',append);child.on('error',e=>{logs+=e.message;});
   child.on('close',async code=>{try{await writeFile(path.join(folder,'dashboard.log'),logs);await finish(code);}catch(e){console.error('Could not save production status:',e.message);running.delete(id);}});
@@ -57,12 +66,13 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
  async function thumbnail(folder){try{const names=(await readdir(path.join(folder,'out','probe'))).filter(n=>/^[a-zA-Z0-9_.-]+\.(png|jpg)$/.test(n)).sort();const still=names.find(n=>n.endsWith('.png'))||names[0];return still?'out/probe/'+still:null;}catch{return null;}}
  async function localJobs(){await mkdir(jobsRoot,{recursive:true});const rows=[];for(const name of await readdir(jobsRoot)){
   if(!/^[a-zA-Z0-9_-]+$/.test(name))continue;
-  try{const row=JSON.parse(await readFile(path.join(jobsRoot,name,'dashboard-job.json'),'utf8'));const pipeline=await readJSON(path.join(jobsRoot,name,'pipeline.json'));if(pipeline.status){if(!running.has(name))row.state=pipeline.status;row.stage=pipeline.stage;row.error=pipeline.error;row.pipeline=pipeline;}if(['RUNNING','QUEUED'].includes(row.state)&&!running.has(name)){row.state='INTERRUPTED';row.error='The studio stopped before this job finished. Inspect the run before retrying.';}row.thumb=await thumbnail(path.join(jobsRoot,name));rows.push(row);}catch{
+  const options=await readJSON(path.join(jobsRoot,name,'cinematic-options.json'),{});const facts={...(typeof options.language==='string'?{language:options.language}:{}),...(Number.isInteger(options.duration)?{duration:options.duration}:{})};
+  try{const row={...JSON.parse(await readFile(path.join(jobsRoot,name,'dashboard-job.json'),'utf8')),...facts};row.title=cleanTitle(row.title);const pipeline=await readJSON(path.join(jobsRoot,name,'pipeline.json'));if(pipeline.status){if(!running.has(name))row.state=pipeline.status;row.stage=pipeline.stage;row.error=pipeline.error;row.pipeline=pipeline;}if(['RUNNING','QUEUED'].includes(row.state)&&!running.has(name)){row.state='INTERRUPTED';row.error='The studio stopped before this job finished. Inspect the run before retrying.';}row.thumb=await thumbnail(path.join(jobsRoot,name));rows.push(row);}catch{
    const final=finalVideo(path.join(jobsRoot,name));
    if(existsSync(final)){
     const info=await stat(final);let title='Local cinematic film';
     try{title=JSON.parse(await readFile(path.join(jobsRoot,name,'script.json'),'utf8')).title||title;}catch{}
-    rows.push({id:name,title,state:'READY_TO_PUBLISH',created:info.mtime.toISOString(),mode:'local',thumb:await thumbnail(path.join(jobsRoot,name))});
+    rows.push({id:name,title,state:'READY_TO_PUBLISH',created:info.mtime.toISOString(),mode:'local',...facts,thumb:await thumbnail(path.join(jobsRoot,name))});
    }
   }
  }return rows.sort((a,b)=>b.created.localeCompare(a.created));}
@@ -78,12 +88,24 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
     const data=await body(req);if(typeof data.prompt!=='string'||!data.prompt.trim()||data.prompt.length>36000)return json(res,422,{detail:'Enter a story between 1 and 36,000 characters.'});
     if(running.size)return json(res,409,{detail:'A local film is already running. Wait for it to finish.'});
     validateOptions(data.options||{});
-    const id=Date.now()+'-'+randomUUID().slice(0,8),folder=path.join(jobsRoot,id);await mkdir(folder,{recursive:true});
-    const row={id,title:data.prompt.trim().slice(0,90),prompt:data.prompt.trim(),state:'RUNNING',created:new Date().toISOString(),mode:'local'};
-    await writeFile(path.join(folder,'user-prompt.txt'),row.prompt);
-    await writeFile(path.join(folder,'cinematic-options.json'),JSON.stringify(data.options||{},null,2));
-    await launchStage(id,folder,row);
+    // Claim the single production slot before any await, so a double click cannot start two films.
+    const id=Date.now()+'-'+randomUUID().slice(0,8),folder=path.join(jobsRoot,id);running.set(id,true);
+    try{
+     await mkdir(folder,{recursive:true});
+     const row={id,title:cleanTitle(data.prompt),prompt:data.prompt.trim(),state:'RUNNING',created:new Date().toISOString(),mode:'local'};
+     await writeFile(path.join(folder,'user-prompt.txt'),row.prompt);
+     await writeFile(path.join(folder,'cinematic-options.json'),JSON.stringify(data.options||{},null,2));
+     await launchStage(id,folder,row);
+    }catch(error){running.delete(id);throw error;}
     return json(res,201,{id});
+   }
+   const project=/^\/local\/jobs\/([a-zA-Z0-9_-]+)$/.exec(url.pathname);
+   if(project){
+    if(req.method!=='DELETE')return json(res,405,{detail:'Method not allowed'});
+    const folder=path.join(jobsRoot,project[1]);
+    if(!existsSync(folder))return json(res,404,{detail:'Project not found'});
+    if(running.has(project[1]))return json(res,409,{detail:'This project is still running. Wait for the stage to finish, then delete it.'});
+    await rm(folder,{recursive:true,force:true,maxRetries:5,retryDelay:200});return json(res,200,{deleted:true});
    }
    const stageRoute=/^\/local\/jobs\/([a-zA-Z0-9_-]+)\/(action|manifest|artifact|folder)$/.exec(url.pathname);
    if(stageRoute){
@@ -95,12 +117,15 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
     }
     if(stageRoute[2]==='action'&&req.method==='POST'){
      if(running.size)return json(res,409,{detail:'Wait for the current production stage to finish.'});
+     running.set(id,true);let launched=false;   // claimed before any await; released below unless the stage starts
+     try{
      const data=await body(req);const pipeline=await readJSON(path.join(folder,'pipeline.json'));
      const expected={AWAITING_SCRIPT:'preview',AWAITING_LOOK:'draft',AWAITING_DRAFT:'finish',FAILED:'retry'};
      if(expected[pipeline.status]!==data.action&&!(data.action==='prepare'&&['AWAITING_SCRIPT','FAILED'].includes(pipeline.status))&&!(data.action==='revise'&&['AWAITING_SCRIPT','AWAITING_LOOK','AWAITING_DRAFT','FAILED'].includes(pipeline.status)))return json(res,409,{detail:'That production action is not available at this stage.'});
      if(data.action==='revise'){if(typeof data.notes!=='string'||!data.notes.trim()||data.notes.length>6000)return json(res,422,{detail:'Add revision notes (up to 6,000 characters)'});const previous=await readFile(path.join(folder,'user-prompt.txt'),'utf8');if(previous.length+data.notes.length>50000)return json(res,422,{detail:'Start a new project for more revisions'});await writeFile(path.join(folder,'user-prompt.txt'),previous+'\nRevision requested by user: '+data.notes);}
      const row=await readJSON(path.join(folder,'dashboard-job.json'),{id,title:id,created:new Date().toISOString(),mode:'local'});
-     await launchStage(id,folder,row,data.action);return json(res,202,{id,state:'RUNNING'});
+     await launchStage(id,folder,row,data.action);launched=true;return json(res,202,{id,state:'RUNNING'});
+     }finally{if(!launched&&running.get(id)===true)running.delete(id);}
     }
     if(stageRoute[2]==='manifest'&&req.method==='GET'){
      const files={};for(const name of ['beats.md','credits.md','script.json','story-plan.json'])try{files[name]=(await readFile(path.join(folder,name),'utf8')).slice(0,100000);}catch{}
@@ -126,11 +151,15 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
    if(url.pathname.startsWith('/api/')){
     if(!apiUrl)return json(res,503,{detail:'The render API is not connected. Restart with studio.cmd.'});
     const headers={'Authorization':'Bearer '+token};if(req.headers['content-type'])headers['Content-Type']=req.headers['content-type'];if(req.headers.range)headers.Range=req.headers.range;
-    const init={method:req.method,headers,redirect:'manual',signal:AbortSignal.timeout(120000)};
+    // The timeout covers only the wait for the API's answer; a long video preview must keep streaming.
+    const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),120000);
+    const init={method:req.method,headers,redirect:'manual',signal:abort.signal};
     if(!['GET','HEAD'].includes(req.method)){init.body=req;init.duplex='half';}
-    let upstream;try{upstream=await fetch(new URL(url.pathname+url.search,apiUrl),init);}catch{return json(res,503,{detail:'The studio API is not running. Close the studio window and start studio.cmd again.'});}
+    let upstream;try{upstream=await fetch(new URL(url.pathname+url.search,apiUrl),init);}catch{return json(res,503,{detail:'The studio API is not running. Close the studio window and start studio.cmd again.'});}finally{clearTimeout(timer);}
     const resultHeaders={};for(const name of ['content-type','content-length','content-range','accept-ranges','location','content-disposition'])if(upstream.headers.has(name))resultHeaders[name]=upstream.headers.get(name);
-    res.writeHead(upstream.status,resultHeaders);if(upstream.body)Readable.fromWeb(upstream.body).pipe(res);else res.end();return;
+    res.writeHead(upstream.status,resultHeaders);
+    // pipeline() handles stream errors and cancels the upstream when the viewer closes the tab.
+    if(upstream.body)pipeline(Readable.fromWeb(upstream.body),res,()=>{});else res.end();return;
    }
    const files={'/':'index.html','/app.js':'app.js','/style.css':'style.css','/languages.json':'languages.json'};const file=files[url.pathname];
    if(!file)return json(res,404,{detail:'Not found'});

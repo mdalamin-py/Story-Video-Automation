@@ -195,3 +195,12 @@ def test_edge_voice_gives_a_clear_message_when_it_keeps_failing(tmp_path, monkey
     real_sleep = asyncio.sleep; monkeypatch.setattr(tool.asyncio, 'sleep', lambda s: real_sleep(0))
     with pytest.raises(SystemExit, match='line 7 after 4 tries.*Retry'):
         asyncio.run(tool.speak(FakeEdge(failures=99), 'Hello', 'hi-IN-SwaraNeural', '+0%', tmp_path/'a.mp3', 7))
+
+
+def test_codex_failures_are_explained_in_plain_words():
+    from backend.cinematic import codex_failure
+    assert 'not signed in' in codex_failure('working...\nError: Not logged in. Run codex login\n')
+    assert 'usage limit' in codex_failure('stream error: 429 Too Many Requests\n')
+    assert 'internet' in codex_failure('error sending request for url\n')
+    plain = codex_failure('the plan mentions a sign in screen early on\n' + 'x\n' * 900 + 'panic: something else\n')
+    assert plain.startswith('Codex could not write the script') and 'panic: something else' in plain

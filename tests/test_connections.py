@@ -81,3 +81,32 @@ def test_vertex_uses_the_google_sign_in_token(monkeypatch):
     assert google_auth.access_token() == "ya29.fresh"
     monkeypatch.setenv("VERTEX_ACCESS_TOKEN", "ya29.pasted")
     assert google_auth.access_token() == "ya29.pasted"
+
+
+def test_blank_env_lines_never_hide_system_keys(tmp_path, monkeypatch):
+    env = tmp_path / ".env"
+    env.write_text("OPENAI_API_KEY=\nGEMINI_API_KEY=\nRUNWAY_API_KEY=rw-from-file\n", encoding="utf-8")
+    monkeypatch.setattr(environment, "ENV_FILE", env)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-from-windows")     # set in the system, not in .env
+    monkeypatch.setenv("GEMINI_API_KEY", "AIza-old")             # came from .env, then disconnected
+    monkeypatch.setenv(environment.FILE_KEYS, "GEMINI_API_KEY")
+    fresh = environment.fresh_env()
+    assert "OPENAI_API_KEY" not in fresh
+    assert fresh["GEMINI_API_KEY"] == "" and fresh["RUNWAY_API_KEY"] == "rw-from-file"
+
+
+def test_parallel_saves_keep_every_key(tmp_path, monkeypatch):
+    import threading
+    env = tmp_path / ".env"
+    monkeypatch.setattr(environment, "ENV_FILE", env)
+    names = [f"KEY_{n}" for n in range(12)]
+    for name in names:
+        monkeypatch.setenv(name, "")
+    threads = [threading.Thread(target=environment.update_env_file, args=({name: "value-" + name},)) for name in names]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    values = environment.env_file_values()
+    assert all(values[name] == "value-" + name for name in names)
+    assert not list(tmp_path.glob(".env.*.tmp"))

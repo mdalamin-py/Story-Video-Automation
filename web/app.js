@@ -12,7 +12,13 @@ const labels = {AWAITING_SCRIPT: 'Review the script', AWAITING_LOOK: 'Review the
 const STEPS = [['beats', 'Story'], ['voice', 'Voice'], ['assets', 'Assets'], ['preview', 'Look'], ['draft', 'Draft'], ['sound mix', 'Sound'], ['final render', 'Export']];
 
 /* ---------- Small UI helpers ---------- */
-function notice(message) { $('#notice').textContent = message; $('#notice').hidden = !message; }
+function notice(message, {reload = false} = {}) {
+  const el = $('#notice'); el.textContent = message; el.hidden = !message;
+  if (reload && message) {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'notice-action'; button.textContent = 'Reload now';
+    button.onclick = () => location.reload(); el.append(' ', button);
+  }
+}
 function toast(message) {
   const el = $('#toast'); el.hidden = true; void el.offsetWidth; // restart the entrance animation
   el.textContent = message; el.hidden = false;
@@ -23,7 +29,7 @@ async function request(url, options = {}) {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     const detail = Array.isArray(data.detail) ? data.detail.map(d => `${(d.loc || []).slice(1).join(' › ') || 'request'}: ${d.msg}`).join('; ') : data.detail;
-    throw Error(typeof detail === 'string' && detail ? detail : `Request failed (${response.status})`);
+    throw Object.assign(Error(typeof detail === 'string' && detail ? detail : `Request failed (${response.status})`), {status: response.status});
   }
   return response;
 }
@@ -52,6 +58,7 @@ function view(name, {scroll = true} = {}) {
   if (location.hash !== '#/' + name) history.replaceState(null, '', '#/' + name);
   notice(''); if (scroll) window.scrollTo({top: 0, behavior: reducedMotion ? 'auto' : 'smooth'});
   if (name === 'overview') renderProjects();
+  if (name === 'create') readiness();
   if (name === 'providers') { if (!prefs.loaded) loadPreferences(false); renderStoryAIStatus(); }
 }
 $$('[data-view]').forEach(el => el.addEventListener('click', e => { e.preventDefault(); view(el.dataset.view); }));
@@ -94,8 +101,25 @@ const templates = {
   explainer: 'Explain simply how a cup of tea is made from the tea leaf: picking the leaves, processing them, and brewing the tea.'
 };
 $$('[data-template]').forEach(el => el.addEventListener('click', () => {
-  $('#story').value = templates[el.dataset.template]; count(); view('create'); $('#story').focus();
+  $('#story').value = templates[el.dataset.template]; count(); saveDraft(); view('create'); $('#story').focus();
 }));
+// The story being written survives a closed tab or a studio restart, until it is submitted.
+const DRAFT = 'studio-draft';
+function saveDraft() {
+  try {
+    const story = $('#story').value, notes = $('#changes').value;
+    if (story || notes) localStorage.setItem(DRAFT, JSON.stringify({story, notes})); else localStorage.removeItem(DRAFT);
+  } catch {}
+}
+function restoreDraft() {
+  try {
+    const draft = JSON.parse(localStorage.getItem(DRAFT) || '{}');
+    if (!$('#story').value && draft.story) $('#story').value = draft.story;
+    if (!$('#changes').value && draft.notes) $('#changes').value = draft.notes;
+  } catch {}
+  count();
+}
+$('#story').addEventListener('input', saveDraft); $('#changes').addEventListener('input', saveDraft);
 function count() {
   const n = $('#story').value.length;
   $('#char-count').textContent = n.toLocaleString() + ' / 24,000';
@@ -114,6 +138,11 @@ function progress(j) {
   const done = new Set(j.pipeline?.completed || []);
   return STEPS.filter(([k]) => done.has(k)).length / STEPS.length;
 }
+// "· हिन्दी · 30s": the language as people write it, then the length.
+function details(j) {
+  const language = String(j.language || '').split(' · ').pop().replace(/^.*\(([^)]*[^\x00-\x7f][^)]*)\)$/, '$1');   // "Bangla (বাংলা)" → বাংলা, "English (US)" stays
+  return [language, j.duration ? j.duration + 's' : ''].filter(Boolean).map(t => ' · ' + escape(t)).join('');
+}
 function card(j, i) {
   const cls = ready(j) ? 'ready' : failed(j) ? 'failed' : REVIEW.includes(j.state) ? 'review' : active(j) ? 'active' : '';
   const title = j.title || j.run || `Untitled story · ${j.id.slice(0, 8)}`;
@@ -128,7 +157,7 @@ function card(j, i) {
       <span class="play${active(j) && !REVIEW.includes(j.state) ? ' spin' : ''}">${icon}</span>
       <span class="art-state">${escape(stage || (j.local ? 'STORY IN MOTION' : 'VERTICAL FILM'))}</span></div>
     <div class="project-info"><h3>${escape(title)}</h3>
-      <div><span>${date ? escape(new Date(parseDate(date)).toLocaleDateString('en-GB', {month: 'short', day: 'numeric', timeZone: 'Asia/Dhaka'})) : 'Saved project'}</span>
+      <div><span>${date ? escape(new Date(parseDate(date)).toLocaleDateString('en-GB', {month: 'short', day: 'numeric'})) : 'Saved project'}${details(j)}</span>
       <span class="badge ${cls}">${escape(labels[j.state] || j.state)}</span></div>
       ${pct !== null ? `<div class="progress${j.state === 'RUNNING' ? ' live' : ''}"><i data-w="${Math.max(6, pct * 100)}"></i></div>` : ''}
     </div></button>`;
@@ -142,14 +171,14 @@ function renderProjects() {
   $('#recent-projects').innerHTML = jobs.slice(0, 3).map(card).join('') || (state.loaded ? empty : $('#recent-projects').innerHTML);
   const term = $('#search').value.toLowerCase();
   const filtered = jobs.filter(j => (state.filter === 'all' || (state.filter === 'ready' ? ready(j) : state.filter === 'active' ? active(j) : failed(j)))
-    && `${j.title || ''} ${j.id} ${j.run || ''}`.toLowerCase().includes(term));
+    && `${j.title || ''} ${j.id} ${j.run || ''} ${j.language || ''}`.toLowerCase().includes(term));
   $('#all-projects').innerHTML = filtered.map(card).join('') || '<div class="empty"><span>▦</span><h3>No projects here yet.</h3><p>Try a different filter or start a new story.</p></div>';
   applyStyles();
   $$('.project-card').forEach(el => el.addEventListener('click', () => openProject(state.jobs.find(j => j.key === el.dataset.job))));
   $$('[data-go]').forEach(el => el.addEventListener('click', () => view(el.dataset.go)));
 }
 // Avoid re-rendering cards (and replaying their entrance) when nothing visible changed.
-const signature = jobs => JSON.stringify(jobs.map(j => [j.key, j.state, j.stage, j.thumb, j.title, (j.pipeline?.completed || []).length]));
+const signature = jobs => JSON.stringify(jobs.map(j => [j.key, j.state, j.stage, j.thumb, j.title, j.language, (j.pipeline?.completed || []).length]));
 
 async function refresh() {
   const button = $('#refresh'); button.classList.add('spinning');
@@ -162,8 +191,13 @@ async function refresh() {
     const changed = !state.loaded || signature(sorted) !== signature(state.jobs);
     state.jobs = sorted; state.loaded = true;
     const connected = results.every(r => r.status === 'fulfilled');
+    // The studio makes a new page session each time it starts, so an old tab gets 401 until it reloads.
+    const expired = results.some(r => r.status === 'rejected' && r.reason?.status === 401 && /dashboard first/i.test(r.reason.message));
+    if (expired && !state.expired) notice('The studio was restarted, so this page lost its connection.', {reload: true});
+    else if (!expired && state.expired) notice('');
+    state.expired = expired;
     $('#connection').classList.toggle('off', !connected);
-    $('#connection').innerHTML = '<i></i>' + (connected ? 'Studio connected' : results[0].status === 'fulfilled' ? 'Local studio · API offline' : 'Connection interrupted');
+    $('#connection').innerHTML = '<i></i>' + (expired ? 'Reload the page' : connected ? 'Studio connected' : results[0].status === 'fulfilled' ? 'Local studio · API offline' : 'Studio offline');
     if (changed) renderProjects();
     if (state.selected) {
       const updated = jobs.find(j => j.key === state.selected.key);
@@ -171,7 +205,7 @@ async function refresh() {
         const stateChanged = state.selected.state !== updated.state, stageChanged = state.selected.stage !== updated.stage;
         state.selected = updated;
         if (stateChanged) { await openProject(updated); return; }
-        $('#job-state').textContent = (labels[updated.state] || updated.state) + (updated.error ? ' · ' + updated.error : '');
+        if ((updated.error || '') !== $('#job-state').dataset.error) showState(updated);   // redraw only on change, so open details stay open
         if (updated.local && active(updated)) {
           loadLog(updated);
           if (stageChanged) await cinematicReview(updated);
@@ -183,9 +217,12 @@ async function refresh() {
 }
 $('#refresh').addEventListener('click', () => refresh().catch(e => notice(e.message)));
 $('#search').addEventListener('input', renderProjects);
-$$('[data-filter]').forEach(el => el.addEventListener('click', () => {
-  state.filter = el.dataset.filter; $$('[data-filter]').forEach(b => b.classList.toggle('active', b === el)); renderProjects();
-}));
+function setFilter(name) {
+  state.filter = name; $$('[data-filter]').forEach(b => b.classList.toggle('active', b.dataset.filter === name)); renderProjects();
+}
+$$('[data-filter]').forEach(el => el.addEventListener('click', () => setFilter(el.dataset.filter)));
+// The overview counters open the library already filtered to what they count.
+$$('[data-go-filter]').forEach(el => el.addEventListener('click', () => { $('#search').value = ''; view('library'); setFilter(el.dataset.goFilter); }));
 
 /* ---------- Create form ---------- */
 function mode() { return new FormData($('#create-form')).get('mode'); }
@@ -205,7 +242,31 @@ async function loadStoryAIs() {
 }
 $('#story-ai').addEventListener('change', e => { try { localStorage.setItem('story-ai', e.target.value); } catch {} });
 
+// What the chosen workflow still needs, checked against the connections list before anything is queued.
+async function readiness() {
+  const box = $('#readiness'), m = mode();
+  if (m === 'demo') { box.hidden = true; return; }
+  const data = connections.loaded ? connections : await loadConnections().catch(() => null);
+  if (!data) { box.hidden = true; return; }   // API offline: the submit itself will explain
+  if (mode() !== m) return;                    // the workflow changed while checking; that call redraws
+  const on = id => data.services.some(s => s.id === id && s.connected);
+  const missing = [];
+  if (m === 'local' && !on('codex')) missing.push('Local cinematic films need the <b>Codex app</b> to write the script. Install it from the Microsoft Store and sign in with your ChatGPT account.');
+  if (m === 'provider') {
+    if (!['gemini', 'openai', 'claude'].some(on)) missing.push('Connect a <b>story AI</b> (Gemini is the cheapest) to write the scenes.');
+    if (!['muse', 'runway'].some(on)) missing.push('Connect a <b>video service</b> (Muse Video or Runway) to generate the clips.');
+  }
+  box.className = 'readiness ' + (missing.length ? 'warn' : 'ok'); box.hidden = false;
+  box.innerHTML = missing.length
+    ? `<div><strong>Before you create</strong><ul>${missing.map(t => `<li>${t}</li>`).join('')}</ul></div>
+       <div class="readiness-actions"><button type="button" class="secondary small" data-recheck>Check again</button>${m === 'provider' ? '<button type="button" class="primary small" data-view-go="providers">Connect accounts →</button>' : ''}</div>`
+    : `<div><strong>✓ Ready</strong> ${m === 'local' ? 'Codex writes the script; voice, render and sound run free on this PC.' : 'A story AI and a video service are connected.'}</div>`;
+  box.querySelector('[data-recheck]')?.addEventListener('click', async () => { connections.loaded = false; await readiness(); toast('Checked again.'); });
+  box.querySelector('[data-view-go]')?.addEventListener('click', () => view('providers'));
+}
+
 function changeMode() {
+  readiness();
   const local = mode() === 'local';
   $$('.local-field').forEach(el => el.hidden = !local);
   $$('.api-field').forEach(el => el.hidden = local);
@@ -256,10 +317,14 @@ $('#create-form').addEventListener('submit', async event => {
         made_for_kids: form.has('made_for_kids'), synthetic_disclosure: form.has('synthetic_disclosure'), story_ai: form.get('story_ai')};
       result = await api('/api/jobs', {method: 'POST', body: JSON.stringify({brief, demo: form.get('mode') === 'demo'})});
     }
+    $('#story').value = ''; $('#changes').value = ''; saveDraft(); count();   // the project keeps its own copy of the story
     await refresh(); view('library'); toast('Your story is in production.');
     const j = state.jobs.find(j => j.id === result.id); if (j) openProject(j);
   } catch (e) { notice(e.message); window.scrollTo({top: 0, behavior: 'smooth'}); }
   finally { button.disabled = false; }
+});
+$('#create-form').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !$('#submit-video').disabled) { e.preventDefault(); $('#create-form').requestSubmit(); }
 });
 /* ---------- Languages: one list (web/languages.json) drives language and voice ---------- */
 const languages = {list: [], byCode: {}};
@@ -289,6 +354,27 @@ $('#language').addEventListener('change', () => { fillVoices($('#language').sele
 $('#voice').addEventListener('change', rememberLanguage);
 
 /* ---------- Project dialog ---------- */
+// Errors from production tools are written for developers; lead with what happened and what to do.
+function plainError(error) {
+  const text = String(error || '');
+  if (/codex\.exe|codex.*returned non-zero/i.test(text)) return 'Codex could not write the script. Check that the Codex app is open and signed in, then press Retry.';
+  if (/NoAudioReceived|Edge voice gave no audio/i.test(text)) return 'The free voice service did not answer. Press Retry in a minute.';
+  if (/ffmpeg|ffprobe/i.test(text) && /not found|missing|No such file/i.test(text)) return 'FFmpeg is missing. Run INSTALL-LOCAL.cmd once, then press Retry.';
+  if (/failed \(exit \d+\)|returned non-zero|Traceback|[A-Z]:\\/.test(text)) return 'A production step stopped. Press Retry; if it happens again, open the Production log below.';
+  return text;
+}
+function showState(job) {
+  const el = $('#job-state'); el.className = failed(job) ? 'job-state bad' : 'job-state'; el.dataset.error = job.error || '';
+  el.textContent = labels[job.state] || job.state;
+  if (!job.error) return;
+  const reason = plainError(job.error);
+  el.append(document.createElement('br'), reason);
+  if (reason !== job.error) {
+    const more = document.createElement('details'); more.className = 'tech';
+    more.innerHTML = '<summary>Technical details</summary><pre></pre>'; more.querySelector('pre').textContent = job.error;
+    el.append(more);
+  }
+}
 async function loadLog(job) {
   try { const pre = $('#job-log'); const atEnd = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
     pre.textContent = (await api(`/local/jobs/${job.id}/log`)).log; if (atEnd) pre.scrollTop = pre.scrollHeight;
@@ -298,7 +384,7 @@ async function openProject(job) {
   if (!job) return;
   state.selected = job;
   $('#preview-title').textContent = job.title || job.run || 'Your story';
-  $('#job-state').textContent = (labels[job.state] || job.state) + (job.error ? ' · ' + job.error : '');
+  showState(job);
   const video = $('#video-preview'); video.pause(); video.removeAttribute('src'); video.hidden = true;
   // Show a real frame of the film instead of a black box before playback.
   if (job.local && job.thumb) video.poster = `/local/jobs/${encodeURIComponent(job.id)}/artifact?file=${encodeURIComponent(job.thumb)}`;
@@ -306,6 +392,7 @@ async function openProject(job) {
   video.load();
   $('#download-video').hidden = true; $('#download-srt').hidden = true; $('#publish-section').hidden = true; $('#job-action').hidden = true;
   $('#job-log').textContent = ''; $('#cinematic-review').hidden = true; $('#logs-block').hidden = !job.local;
+  deleteButton(job);
   if (!$('#preview-dialog').open) $('#preview-dialog').showModal();
   try {
     if (ready(job)) {
@@ -328,7 +415,22 @@ async function openProject(job) {
     }
   } catch (e) { $('#job-state').textContent = e.message; }
 }
-$('#close-dialog').onclick = () => { $('#video-preview').pause(); $('#preview-dialog').close(); state.selected = null; };
+// Two presses, so a stray click never removes a film: the first arms the button for a few seconds.
+function deleteButton(job) {
+  const button = $('#delete-project'); clearTimeout(button._t);
+  button.hidden = !job.local || job.state === 'RUNNING'; button.textContent = 'Delete project'; button.classList.remove('armed'); button.disabled = false;
+  button.onclick = async () => {
+    if (!button.classList.contains('armed')) {
+      button.classList.add('armed'); button.textContent = 'Press again to delete its folder for good';
+      button._t = setTimeout(() => { button.classList.remove('armed'); button.textContent = 'Delete project'; }, 5000); return;
+    }
+    button.disabled = true;
+    const video = $('#video-preview'); video.pause(); video.removeAttribute('src'); video.load();   // Windows keeps a playing file locked
+    try { await api(`/local/jobs/${encodeURIComponent(job.id)}`, {method: 'DELETE'}); $('#preview-dialog').close(); await refresh(); toast('Project deleted.'); }
+    catch (e) { toast(e.message); button.disabled = false; }
+  };
+}
+$('#close-dialog').onclick =() => { $('#video-preview').pause(); $('#preview-dialog').close(); state.selected = null; };
 $('#preview-dialog').addEventListener('close', () => { $('#video-preview').pause(); state.selected = null; });
 
 async function cinematicReview(job) {
@@ -343,7 +445,7 @@ async function cinematicReview(job) {
     AWAITING_LOOK: 'Check the preview frames and contact sheet. Approval renders a draft of up to 30 seconds.',
     AWAITING_DRAFT: 'Watch the draft above. Approval builds the sound effects and mix, then renders the full film with captions.',
     READY_TO_PUBLISH: 'The final video passed media validation. Download the MP4, subtitle file and credits.',
-    FAILED: 'The current stage failed. Check the production log, fix the cause, then retry the stage.'};
+    FAILED: 'This stage stopped (the reason is above). Everything finished so far is saved: press Retry to continue from here.'};
   $('#stage-description').textContent = (descriptions[effectiveStatus] || 'Current stage: ' + (pipeline.stage || 'starting') + ' …')
     + (pipeline.actual_duration ? ' Narration timeline: ' + Number(pipeline.actual_duration).toFixed(1) + ' seconds.' : '');
   $('#beat-table').textContent = manifest.files['beats.md'] || manifest.files['script.json'] || 'Preparing the script…';
@@ -431,9 +533,9 @@ async function loadPreferences(showToast) {
     prefForm().querySelector('details.advanced').open = Boolean(data.story_routing);
     prefs.loaded = true; $('#save-prefs').disabled = false;
     const count = Object.values(data).filter(v => v !== null && v !== '').length;
-    prefStatus(count ? `${count} saved setting${count === 1 ? '' : 's'} loaded. Blank fields use the server default from .env.`
-                     : 'Nothing saved yet: every field uses the server default from .env.');
-    if (showToast) toast('Saved settings reloaded.');
+    prefStatus(count ? `${count} saved setting${count === 1 ? '' : 's'}. Blank fields stay on Automatic.`
+                     : 'Everything is on Automatic. Change only what you need.');
+    if (showToast) toast('Unsaved changes undone.');
   } catch (e) {
     prefs.loaded = false;
     prefStatus(`Could not load your saved settings (${e.message}). Saving is off so nothing is overwritten.`);
@@ -464,15 +566,20 @@ prefForm().onsubmit = async e => {
 };
 
 /* ---------- AI account connections ---------- */
-const connections = {services: [], google: {}, current: null};
+const connections = {services: [], google: {}, current: null, loaded: false};
+async function loadConnections() {
+  const data = await api('/api/connections');
+  Object.assign(connections, {services: data.services, google: data.google, loaded: true});
+  return connections;
+}
 const GOOGLE_G = '<svg viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.3h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.7H.9v2.3A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.9 10.8a5.4 5.4 0 0 1 0-3.5V5H.9a9 9 0 0 0 0 8.1l3-2.3z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.5 1.4l2.6-2.6A9 9 0 0 0 .9 5l3 2.3C4.6 5.2 6.6 3.6 9 3.6z"/></svg>';
 async function renderStoryAIStatus() {
   const box = $('#connection-groups');
   try {
-    const data = await api('/api/connections');
-    connections.services = data.services; connections.google = data.google;
+    const data = await loadConnections();
+    if (state.view === 'create') readiness();
     const ready = data.services.filter(r => r.connected).length;
-    $('#connections-summary').textContent = `${ready} of ${data.services.length} connected. Sign in with Google or paste a key; keys stay in .env on this PC and are tested before they are saved.`;
+    $('#connections-summary').textContent = `${ready} of ${data.services.length} connected. Press Connect on a service and follow the steps. Keys are tested first and stay on this PC.`;
     const g = $('#google-state'); g.hidden = false;
     g.className = 'google-state ' + (data.google.signed_in ? 'on' : '');
     g.innerHTML = GOOGLE_G + (data.google.signed_in ? 'Signed in with Google' : data.google.cli ? 'Google: not signed in' : 'Google sign-in: Cloud CLI not installed');
@@ -563,7 +670,7 @@ $$('[data-cost]').forEach(el => el.onclick = () => report('/api/provider-costs/'
 $('#load-usage').onclick = () => report('/api/provider-usage', 'Request history');
 
 /* ---------- Start ---------- */
-changeMode(); costEstimate(); loadStoryAIs(); loadLanguages();
+restoreDraft(); changeMode(); costEstimate(); loadStoryAIs(); loadLanguages();
 const VIEWS = ['overview', 'create', 'library', 'providers'];
 const hashView = () => location.hash.replace(/^#\/?/, '');
 const initial = hashView();
@@ -571,4 +678,6 @@ if (VIEWS.includes(initial) && initial !== 'overview') view(initial, {scroll: fa
 addEventListener('hashchange', () => { const v = hashView(); if (VIEWS.includes(v) && v !== state.view) view(v); });
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 refresh().catch(e => notice(e.message));
-setInterval(() => refresh().catch(() => {}), 5000);
+// Poll only while the tab is visible, and catch up the moment it is shown again.
+setInterval(() => { if (!document.hidden) refresh().catch(() => {}); }, 5000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh().catch(() => {}); });
