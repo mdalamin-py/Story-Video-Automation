@@ -1,23 +1,35 @@
 {
-  "policy": "priority",
+  "policy": "lowest_cost",
   "fallback": true,
   "max_estimated_usd": 0.1,
   "providers": [
+    {
+      "name": "gemini",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "model": "gemini-2.5-flash",
+      "key_env": "GEMINI_API_KEY",
+      "priority": 10,
+      "estimated_usd": 0.01,
+      "token_limit": 8192,
+      "reasoning_effort": "low"
+    },
     {
       "name": "openai",
       "base_url": "https://api.openai.com/v1",
       "model": "gpt-5-mini",
       "key_env": "OPENAI_API_KEY",
-      "priority": 10,
+      "priority": 20,
       "estimated_usd": 0.05,
-      "token_parameter": "max_completion_tokens"
+      "token_limit": 8192,
+      "token_parameter": "max_completion_tokens",
+      "reasoning_effort": "low"
     },
     {
       "name": "custom",
       "base_url": "https://example.com/v1",
       "model": "replace-with-provider-model",
       "key_env": "CUSTOM_LLM_API_KEY",
-      "priority": 20,
+      "priority": 30,
       "estimated_usd": 0.05,
       "enabled": false
     }

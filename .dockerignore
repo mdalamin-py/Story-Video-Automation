@@ -10,4 +10,3 @@
 !input/brief.json
 !input/story-providers.example.json
 **/__pycache__/
-!requirements-distributed.txt

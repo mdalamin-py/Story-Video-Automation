@@ -34,6 +34,13 @@ class SpeechRateLimited(RuntimeError):
     pass
 
 
+LETTERS_PER_SECOND = 15.0   # about the pace make_beats.py assumes; works for Bangla and English letters
+
+
+def estimated_seconds(text):
+    return sum(ch.isalpha() for ch in text) / LETTERS_PER_SECOND + 0.35 * sum(text.count(p) for p in ",.!?।")
+
+
 def routed_narration(scene, settings, folder, seconds, number):
     primary, backup = settings
     route = folder / f"scene-{number:02}-voice.json"
@@ -74,6 +81,9 @@ def narration(scene, config, folder, seconds):
     provider, model, voice, key = config
     digest = hashlib.sha256(json.dumps([provider, model, voice, text]).encode()).hexdigest()
     audio = folder / (digest + ".wav")
+    if not audio.is_file() and estimated_seconds(text) > seconds * 1.3:
+        raise ValueError(f"Narration would take about {estimated_seconds(text):.1f}s for a {seconds}s scene. "
+                         "Shorten the dialogue or extend the scene. (Checked before calling the speech service: nothing was charged.)")
     if not audio.is_file():
         raw = audio.with_suffix(".mp3.part")
         decoded = audio.with_suffix(".wav.part")

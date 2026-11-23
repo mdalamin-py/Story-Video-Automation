@@ -1,5 +1,86 @@
 # Story Video Automation
 
+Project requirements: Python for the backend/rendering and plain Node.js for the dashboard.
+Do not add Next.js or another frontend framework. Keep every Python dependency in
+the single root `requirements.txt`; do not create separate local, dev or distributed
+requirements files. Avoid redundant setup files and dependencies.
+
+Install Python packages once with `python -m pip install -r requirements.txt`.
+Node.js has no npm package dependencies. FFmpeg/FFprobe remain system tools.
+
+## Cinematic-film backend
+
+The dashboard's local workflow is driven by `backend/cinematic.py`, using the
+bundled cinematic-film scripts directly. The coding agent prepares the story and
+scene plan; Python owns voice, assets, preview, render, sound and final validation.
+`studio.cmd`, `VIDEO-MAKER.cmd` and `Video-Maker.py` all open this same dashboard.
+
+Create a video in **Local cinematic** mode. By default the workflow pauses for:
+
+1. Script and beat-table approval.
+2. Look approval after preview frames and a camera contact sheet.
+3. Draft approval before sound mixing and the complete final export.
+
+Uncheck the review option to run an approved plan automatically through all stages.
+Each stage saves status, outputs, logs and errors in the project folder. A failed
+stage can be retried, and changed plan files invalidate prior approval. Revision
+notes regenerate the plan; **Recheck files I edited** validates manual script changes.
+
+Features exposed in the dashboard:
+
+- Seven cinematic looks: studio, wall, slate, charcoal, blueprint, paper and night.
+- The original camera/spotlight, photos, document, card, counter, stamp, pen, route and map engine.
+- Licensed Commons photos and credits; map/region/route generation when selected.
+- Online Bangla/English narration, recorded takes, or recorded per-line WAV files.
+- Preview stills, contact sheets, up-to-30-second draft and full MP4 export.
+- Synthesized effects, normalized voice/effects mixing, optional licensed background score.
+- Four shaped caption treatments, UTF-8 SRT, beat table, credits and media verification report.
+- Landscape/portrait drafts and exports through 4K; Windows serial rendering. Higher resolutions require more time and memory.
+
+Use **Open project folder** to add assets, recordings or `audio/music.mp3` before
+continuing. Recorded takes use the take names in `script.json`; recorded lines use
+`audio/lines/segNN.wav`. Background score mixing currently requires narration enabled.
+The selected speech service receives narration text. Story/scene planning requires
+Codex CLI login. Nothing is uploaded or published automatically.
+
+The workflow follows the skill's checks automatically:
+
+- `check_setup.py` runs first, before any Codex planning is spent, and names what is missing.
+- The planner runs the beat-table lint itself and fixes its warnings; any that remain appear
+  in the review window with a **Fix these with Codex** button.
+- `tools/review_look.py` renders one contact sheet per camera move (found with the engine's own
+  speed test) and flags spotlight drift, dark frames and empty frames before you approve the look.
+- Drafts render at 1280x720 (720x1280 portrait), as the skill specifies; the final uses your size.
+- Recorded takes surface `split_takes.py`'s suspect-cut flags for listening.
+- A failed stage shows the last lines of its own output instead of a bare exit code.
+
+Windows fixes include explicit UTF-8 text reads, Unicode-aware word timing shares,
+bounded encoder threads and a portable sound filter. Word timing is approximate
+letter-share timing, as in the source engine; it is not forced audio alignment.
+`split_takes.py` and `captions.py` count letters in any script, so Bangla recorded
+takes are timed and flagged correctly (they previously counted only A–Z).
+
+## Keeping AI costs low
+
+Local cinematic mode is the cheapest route: voice (Edge TTS), rendering, sound and captions
+run on this computer; only Codex planning uses your quota. Set `CODEX_MODEL` or
+`CODEX_REASONING_EFFORT` in `.env` to plan with less, and revisions edit only what changed.
+
+Provider mode spends credits, so every paid step avoids repeat or wasted work:
+
+| Step | Control |
+| --- | --- |
+| Story (OpenAI) | Low reasoning effort for GPT-5/o-series, an output cap, and a plan cache: re-drafting an identical brief is free (`STORY_CACHE=0` to disable). |
+| Story (routing) | `input/story-providers.example.json` uses `lowest_cost`: Gemini 2.5 Flash first, then GPT-5-mini, under `max_estimated_usd`. |
+| Video (Muse, Runway) | Each scene has its own cache, so editing one scene pays for that scene only; a moved scene reuses its clip. Default source is 720p (about half of 1080p's credits) with local Lanczos upscaling to the export size. The dashboard shows the estimate before you queue. |
+| Images (GPT Image) | `IMAGE_QUALITY` defaults to `medium`; `auto` can choose the far costlier `high`. |
+| Voice (OpenAI, ElevenLabs) | Dialogue that cannot fit its scene is refused before the request, so nothing is charged; the story prompt asks for dialogue that fits. Narration stays cached by text. |
+
+All Python dependencies stay in the one root `requirements.txt`. The existing
+installer can make `.venv`; this PC can also use its previously tested runtime.
+FFmpeg and FFprobe are required system tools. The bundled source is MIT licensed;
+see `skills/CINEMATIC-LICENSE`.
+
 ## Start the dashboard on Windows
 
 With Python 3.12+ and Node.js installed, run:
@@ -8,9 +89,11 @@ With Python 3.12+ and Node.js installed, run:
 .\studio.cmd
 ```
 
-The launcher starts Next.js, FastAPI, and the render worker together. Open
-the URL printed in the terminal and enter the printed admin token. If a
-preferred port is unavailable, the launcher uses an available port.
+The launcher starts the native Node.js dashboard, FastAPI, and the render worker.
+Your browser opens automatically; no dashboard token needs to be copied.
+If a preferred port is unavailable, the launcher uses an available port.
+You can also run `npm start`. Node.js 22+ is required; there are no npm runtime dependencies
+and no frontend build step. Keep Python render dependencies installed.
 Keep the terminal open while using the dashboard. Press Ctrl+C to stop it.
 
 An empty or missing .env is sufficient for demo jobs. Add real credentials to
@@ -100,7 +183,34 @@ to YouTube or as a Facebook draft.
 
 ## Dashboard and distributed deployment
 
-The Next.js dashboard supports job submission, previews, provider defaults,
+The Node.js dashboard supports job submission, previews, provider defaults,
 scheduled deliveries, and on-demand engagement. PostgreSQL and Redis/Celery
 are available through the distributed Compose configuration. See
 [deployment instructions](documentation/deployment.md) for setup and acceptance checks.
+
+## Redesigned Node.js dashboard
+
+- Overview: project counts, recent films and story starters.
+- Create a video: story prompt, director notes, mood, frame and output controls.
+- Local cinematic mode: uses the signed-in Codex CLI and existing Bangla helpers.
+- Demo mode: tests the render pipeline without provider credentials.
+- Connected-provider mode: existing API generation, previews and approved publishing.
+- Video library: search, status filters, playable previews, downloads and production logs.
+- Provider settings: saved defaults, account checks, usage and cost reports.
+
+Run `studio.cmd` or `npm start`. The dashboard binds to loopback and uses an
+HttpOnly local session; backend credentials remain on the server. The original
+Python CLI and distributed backend remain available.
+The dashboard uses native Node.js modules and static HTML/CSS/JavaScript.
+Obsolete framework build files and unused npm packages have been removed.
+
+Validation: `npm test`, `npm run check`, and `python -m pytest tests -q`.
+Browser verification included a completed demo submission and a playable preview.
+Live paid generation, Codex story generation and publishing were not triggered
+as part of the dashboard migration.
+
+Backend workflow validation: approval/retry/changed-plan tests, Bangla timing tests,
+Node stage/artifact API tests, a recorded-voice review sample, and an automatic
+sample using live online voice, synthesized cues, loudness mixing and captioned
+MP4 verification. Story planning for these samples used existing plan files; a new
+Codex-generated story, archive/map downloads and live publishing were not exercised.

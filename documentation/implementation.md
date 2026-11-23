@@ -13,7 +13,7 @@
 - [x] Redis/Celery dispatch and PostgreSQL queue implementation, pending infrastructure acceptance.
 - [x] Optional S3 preview archiving and worker heartbeat endpoint.
 - [ ] Full workflow reconciliation, S3-backed media serving, and production alerting.
-- [x] Next.js dashboard, provider defaults, preview and approval-based delivery.
+- [x] Node.js dashboard, provider defaults, preview and approval-based delivery.
 - [ ] Production monitoring and full provider administration.
 - [ ] Extend media production and official social integrations.
 - [ ] Run infrastructure, live provider and publishing acceptance tests.
@@ -22,7 +22,7 @@
 
 ```mermaid
 flowchart LR
-  UI[Next.js dashboard] --> API[FastAPI and authentication]
+  UI[Node.js dashboard] --> API[FastAPI and authentication]
   API --> DB[(PostgreSQL)]
   API --> Queue[(Redis)]
   Queue --> Workers[Celery workers]

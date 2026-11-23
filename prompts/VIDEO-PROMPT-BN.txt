@@ -1,0 +1,12 @@
+আমার গল্প: [আপনার গল্প লিখুন]
+চরিত্র: [কারা থাকবে]
+শুরু, মাঝের ঘটনা ও শেষ: [লিখুন]
+সময়: ৩০ সেকেন্ড
+ভাষা: বাংলা
+Visual style: cinematic illustration
+Frame: 16:9
+ভয়েস ও বাংলা subtitle চাই।
+
+এই গল্প Story Video Automation-এর Local cinematic mode-এ দিন।
+Python backend cinematic-film skill-এর engine ও tools ব্যবহার করবে।
+Review চালু রাখলে script, look ও draft অনুমোদন করে final export করুন।

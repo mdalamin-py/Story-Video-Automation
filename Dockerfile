@@ -4,8 +4,8 @@ WORKDIR /studio
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-noto-core \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 studio
-COPY requirements.txt requirements-distributed.txt ./
-RUN pip install --no-cache-dir -r requirements-distributed.txt
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 COPY backend backend
 COPY frontend frontend
 COPY src src

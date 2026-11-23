@@ -89,6 +89,36 @@ def render_fingerprint(brief_path, plan, video):
     return hashlib.sha256(fingerprint(brief_path, video).encode() + scene_data).hexdigest()
 
 
+def legacy_asset_key(generation_inputs):
+    return hashlib.sha256(json.dumps(generation_inputs, sort_keys=True).encode()).hexdigest()
+
+
+def scene_asset_folders(folder, generation_inputs):
+    """One cache folder per scene, keyed by the shared settings plus that scene's own prompt and
+    dialogue, so editing one scene re-generates (and pays for) only that scene.
+
+    Runs started before per-scene caching keep their single shared folder, so an in-flight paid
+    submission recorded there is resumed rather than submitted again."""
+    legacy = folder / "assets" / legacy_asset_key(generation_inputs)
+    scenes = generation_inputs["scenes"]
+    if legacy.is_dir():
+        return [legacy] * len(scenes)
+    shared = {key: value for key, value in generation_inputs.items() if key != "scenes"}
+    folders = []
+    for number, scene in enumerate(scenes, 1):
+        key = hashlib.sha256(json.dumps([shared, scene], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        target = folder / "assets" / "scenes" / key
+        target.mkdir(parents=True, exist_ok=True)
+        clip = target / f"scene-{number:02}.mp4"
+        if not clip.exists():
+            # Same scene, new position: reuse the finished clip instead of paying again.
+            previous = sorted(p for p in target.glob("scene-*.mp4") if p.stem[6:].isdigit())
+            if previous:
+                shutil.copyfile(previous[0], clip)
+        folders.append(target)
+    return folders
+
+
 def draft(args):
     brief = load(args.brief)
     if args.demo:
@@ -161,9 +191,7 @@ def process(folder, args):
                     video_provider == "runway" or os.environ.get("VIDEO_FALLBACK_PROVIDER", "").strip() == "runway"
                 ):
                     generation_inputs["runway_model"] = runway_model
-            asset_key = hashlib.sha256(json.dumps(generation_inputs, sort_keys=True).encode()).hexdigest()
-            assets = folder / "assets" / asset_key
-            assets.mkdir(parents=True, exist_ok=True)
+            scene_folders = scene_asset_folders(folder, generation_inputs)
             if not demo and not illustration and video_provider == "muse-video.com":
                 credits = brief["scene_count"] * brief["seconds_per_scene"] * (
                     75 if brief["resolution"] == "1080p" else 40)
@@ -173,12 +201,13 @@ def process(folder, args):
                 print(f"Upscaling {brief['resolution']} source to {output}.", flush=True)
             voices = None
             if voice:
-                voice_folder = folder / "narration" / asset_key
+                legacy = folder / "narration" / legacy_asset_key(generation_inputs)
+                voice_folder = legacy if legacy.is_dir() else folder / "narration" / "shared"
                 voice_folder.mkdir(parents=True, exist_ok=True)
                 voices = [routed_narration(scene, voice, voice_folder, brief["seconds_per_scene"], number)
                           for number, scene in enumerate(plan["scenes"], 1)]
             clips = [] if demo else [
-                adapter(scene, video_brief, assets, number)
+                adapter(scene, video_brief, scene_folders[number - 1], number)
                 for number, scene in enumerate(plan["scenes"], 1)
             ]
             render(clips, plan["scenes"], video_brief, folder, demo, voices)

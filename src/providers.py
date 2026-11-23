@@ -1,5 +1,7 @@
+import hashlib
 import json
 import os
+import re
 import time
 from pathlib import Path
 from urllib.error import HTTPError
@@ -59,25 +61,78 @@ STORY_INSTRUCTIONS = (
     "Use exactly scene_count scenes, each with visual_prompt, dialogue, and caption strings. "
     "Time each scene for seconds_per_scene. Keep the title within 95 characters. "
     "Keep character appearance, wardrobe, camera, lighting, and color consistent. "
-    "Keep dialogue brief and leave unwanted dialogue or captions empty."
+    "Keep dialogue brief and leave unwanted dialogue or captions empty. "
+    "Each scene's dialogue must be speakable within seconds_per_scene (about two words per second), "
+    "so narration never has to be generated twice."
 )
+
+STORY_CACHE = Path(__file__).resolve().parents[1] / "runs" / "story-cache"
+REASONING_EFFORTS = {"minimal", "low", "medium", "high"}
+
+
+def story_cache_path(*material):
+    """Identical brief + instructions reuse the saved plan instead of paying for a new one.
+    STORY_CACHE=0 turns it off (for example to ask for a fresh variation)."""
+    if os.environ.get("STORY_CACHE", "1").strip() == "0":
+        return None
+    key = hashlib.sha256(json.dumps(material, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+    return STORY_CACHE / f"{key}.json"
+
+
+def cached_story(path):
+    if path and path.is_file():
+        print("Story plan: reused from cache (no API call).", flush=True)
+        return json.loads(path.read_text(encoding="utf-8"))
+    return None
+
+
+def save_story(path, plan):
+    if path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_json(path, plan)
+
+
+def story_payload(brief):
+    model = required("OPENAI_MODEL")
+    limit = os.environ.get("OPENAI_MAX_OUTPUT_TOKENS", "").strip() or "6000"
+    if not limit.isdigit() or not 512 <= int(limit) <= 64000:
+        raise ValueError("OPENAI_MAX_OUTPUT_TOKENS must be a whole number from 512 to 64000.")
+    payload = {
+        "model": model, "store": False,
+        "instructions": STORY_INSTRUCTIONS,
+        "input": json.dumps(brief, ensure_ascii=False),
+        "text": {"format": {"type": "json_object"}},
+        "max_output_tokens": int(limit),
+    }
+    # Reasoning models spend most of their tokens thinking; a short JSON plan does not need much.
+    effort = os.environ.get("OPENAI_REASONING_EFFORT", "").strip().lower()
+    if not effort and re.match(r"(gpt-5|o\d)", model):
+        effort = "low"
+    if effort and effort != "default":
+        if effort not in REASONING_EFFORTS:
+            raise ValueError("OPENAI_REASONING_EFFORT must be minimal, low, medium, high or default.")
+        payload["reasoning"] = {"effort": effort}
+    return payload
 
 
 def story_plan(brief):
-    response, _ = request("https://api.openai.com/v1/responses", "POST",
-        required("OPENAI_API_KEY"), {
-            "model": required("OPENAI_MODEL"), "store": False,
-            "instructions": STORY_INSTRUCTIONS,
-            "input": json.dumps(brief, ensure_ascii=False),
-            "text": {"format": {"type": "json_object"}},
-        })
+    payload = story_payload(brief)
+    cache = story_cache_path("openai-responses", payload)
+    if (plan := cached_story(cache)) is not None:
+        return plan
+    response, _ = request("https://api.openai.com/v1/responses", "POST", required("OPENAI_API_KEY"), payload)
     if response.get("status") != "completed":
+        reason = (response.get("incomplete_details") or {}).get("reason")
+        if reason == "max_output_tokens":
+            raise RuntimeError("Story generation hit OPENAI_MAX_OUTPUT_TOKENS. Raise it or lower OPENAI_REASONING_EFFORT.")
         raise RuntimeError("Story generation did not complete.")
     output = "".join(part["text"] for item in response["output"]
                      for part in item.get("content", []) if part["type"] == "output_text")
     if not output:
         raise RuntimeError("The story service returned no usable text.")
-    return json.loads(output)
+    plan = json.loads(output)
+    save_story(cache, plan)
+    return plan
 
 
 def muse_video(scene, brief, folder, number):

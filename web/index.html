@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Story Studio — Your creative space</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f2b544'/%3E%3Crect x='8' y='9' width='4' height='14' rx='1' fill='%231d1406'/%3E%3Crect x='14' y='7' width='4' height='18' rx='1' fill='%231d1406'/%3E%3Crect x='20' y='11' width='4' height='10' rx='1' fill='%231d1406'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<div class="shell">
+
+<aside class="sidebar">
+  <a class="brand" href="#/overview" data-view="overview">
+    <span class="brandmark" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="brand-text">Story<b>Studio</b><small>Cinematic film workspace</small></span>
+  </a>
+
+  <p class="nav-label">Workspace</p>
+  <nav aria-label="Main">
+    <button data-view="overview" class="active"><span class="nav-icon" aria-hidden="true">◈</span>Overview</button>
+    <button data-view="create"><span class="nav-icon" aria-hidden="true">＋</span>Create a video<small>New</small></button>
+    <button data-view="library"><span class="nav-icon" aria-hidden="true">▦</span>Video library</button>
+    <button data-view="providers"><span class="nav-icon" aria-hidden="true">⚙</span>Providers &amp; settings</button>
+  </nav>
+
+  <div class="sidebar-bottom">
+    <div class="side-note">
+      <span class="side-reel" aria-hidden="true"></span>
+      <strong>A little idea. A great story.</strong>
+      <p>Script, voice, camera moves, sound and Bangla captions, made in one place.</p>
+      <button data-view="create">Start creating <span aria-hidden="true">→</span></button>
+    </div>
+    <div class="profile"><span class="avatar">ME</span><div>Personal workspace<small>Saved on this computer</small></div><span class="online-dot" aria-hidden="true"></span></div>
+  </div>
+</aside>
+
+<main>
+<header class="topbar">
+  <div class="crumbs"><span class="breadcrumb">Workspace</span><span class="slash" aria-hidden="true">/</span><span id="crumb">Overview</span></div>
+  <div class="top-actions">
+    <span id="connection" class="connection"><i></i> Connecting</span>
+    <button class="icon-button" id="theme-toggle" aria-label="Switch light or dark theme" title="Switch theme">◐</button>
+    <button class="icon-button" id="refresh" aria-label="Refresh jobs" title="Refresh">↻</button>
+  </div>
+</header>
+
+<div class="page">
+<div id="notice" role="alert" hidden></div>
+
+<!-- OVERVIEW -->
+<section id="overview" class="view">
+  <div class="page-heading reveal">
+    <div>
+      <div class="eyebrow">Make something worth watching</div>
+      <h1>Your creative space.</h1>
+      <p>Turn the story in your head into a narrated cinematic film.</p>
+    </div>
+    <button class="primary" data-view="create"><span aria-hidden="true">＋</span> Create a video</button>
+  </div>
+
+  <div class="hero reveal">
+    <div class="hero-copy">
+      <span class="hero-tag"><i></i> From a single idea</span>
+      <h2>Every great film<br>starts with a <em>story</em>.</h2>
+      <p>Write your idea. We plan the beats, record the voice, move the camera across one designed world, and finish with sound and Bangla captions.</p>
+      <div class="hero-buttons">
+        <button class="accent-button" data-view="create">Bring your story to life <span aria-hidden="true">→</span></button>
+        <button class="ghost-button" data-view="library">Watch your films</button>
+      </div>
+      <ol class="hero-steps" aria-label="How a film is made">
+        <li><b>01</b>Story</li><li><b>02</b>Voice</li><li><b>03</b>Look</li><li><b>04</b>Draft</li><li><b>05</b>Export</li>
+      </ol>
+    </div>
+
+    <div class="hero-art" aria-hidden="true">
+      <div class="viewfinder">
+        <div class="scene">
+          <div class="sky"></div>
+          <div class="sun"></div>
+          <div class="cloud c1"></div><div class="cloud c2"></div>
+          <div class="hill h3"></div><div class="hill h2"></div><div class="hill h1"></div>
+          <div class="boat"></div>
+          <div class="water"></div>
+        </div>
+        <span class="vf-corner tl"></span><span class="vf-corner tr"></span><span class="vf-corner bl"></span><span class="vf-corner br"></span>
+        <div class="vf-top"><span class="rec"><i></i>REC</span><span>4K · 24 fps</span></div>
+        <div class="vf-bottom"><span id="hero-timecode">00:00:00:00</span><span>SCENE 01 · TAKE 03</span></div>
+        <div class="focus-box"></div>
+      </div>
+      <div class="filmstrip"><div class="filmstrip-track"></div></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat reveal"><span>Total projects</span><strong id="total-count" data-count>0</strong><small>Your story collection</small><i class="stat-icon" aria-hidden="true">▦</i></div>
+    <div class="stat reveal"><span>In the making</span><strong id="active-count" data-count>0</strong><small>Writing &amp; rendering</small><i class="stat-icon violet" aria-hidden="true">◷</i></div>
+    <div class="stat reveal"><span>Ready to watch</span><strong id="ready-count" data-count>0</strong><small>Finished films</small><i class="stat-icon good" aria-hidden="true">✓</i></div>
+    <div class="stat reveal"><span>Needs attention</span><strong id="failed-count" data-count>0</strong><small>Open the job to see why</small><i class="stat-icon warn" aria-hidden="true">!</i></div>
+  </div>
+
+  <div class="section-heading reveal">
+    <div><h2>Recent projects <span id="recent-count" class="count">0</span></h2><p>A home for everything you’re making.</p></div>
+    <button class="text-button" data-view="library">View all projects →</button>
+  </div>
+  <div id="recent-projects" class="project-grid"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+
+  <div class="inspiration reveal">
+    <div><span class="tiny-label">A little inspiration</span><h3>Where will your next story take you?</h3></div>
+    <div class="inspiration-buttons">
+      <button data-template="story"><span aria-hidden="true">☂</span> A short story</button>
+      <button data-template="brand"><span aria-hidden="true">✦</span> A brand moment</button>
+      <button data-template="explainer"><span aria-hidden="true">◈</span> An idea explained</button>
+    </div>
+  </div>
+</section>
+
+<!-- CREATE -->
+<section id="create" class="view" hidden>
+  <div class="page-heading reveal">
+    <div>
+      <div class="eyebrow">Your next chapter</div>
+      <h1>Let’s make a story.</h1>
+      <p>Start with a sentence, a detailed story, or a spark of an idea.</p>
+    </div>
+    <span class="step-pill">01 / Create</span>
+  </div>
+
+  <form id="create-form" class="create-layout">
+    <div class="form-main">
+      <div class="panel reveal">
+        <div class="panel-title"><span class="number">01</span><div><h2>The story comes first</h2><p>আপনার গল্প বা ভিডিওর idea নিচে লিখুন।</p></div></div>
+        <label for="story">Your story or idea <span class="field-tag">Required</span></label>
+        <textarea id="story" name="story" rows="8" maxlength="24000" placeholder="বৃষ্টির বিকেলে মীরা একটি কাগজের নৌকা বানিয়ে ভাসিয়ে দিল…" required></textarea>
+        <div class="input-footer"><span>Who is in it, what happens, how it ends.</span><span id="char-count">0 / 24,000</span></div>
+        <div class="template-row"><span>Try an idea</span><button type="button" data-template="story">Short story</button><button type="button" data-template="brand">Brand film</button><button type="button" data-template="explainer">Explainer</button></div>
+        <label for="changes">Director’s notes <span class="field-tag">Optional</span></label>
+        <textarea id="changes" name="final_changes" rows="3" maxlength="6000" placeholder="শেষ দৃশ্যে উষ্ণ আলো চাই। শান্ত নারী কণ্ঠ এবং সবুজ রং ব্যবহার করো।"></textarea>
+      </div>
+
+      <div class="panel reveal">
+        <div class="panel-title"><span class="number">02</span><div><h2>Make it feel like you</h2><p>Set the mood, language and format.</p></div></div>
+        <div class="field-grid">
+          <label>Language<select name="language"><option>বাংলা</option><option>English</option></select></label>
+          <label>Visual mood<select name="style"><option>Cinematic, warm natural light</option><option>Playful illustrated storytelling</option><option>Minimal editorial, clean typography</option><option>Moody documentary, evidence board</option><option>Modern product film, studio lighting</option></select></label>
+          <label class="local-field">Video length<select name="duration"><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="60">60 seconds</option><option value="90">90 seconds</option></select></label>
+          <label class="local-field">Frame<select name="aspect"><option value="16:9">Landscape · 16:9</option><option value="9:16">Reels / Shorts · 9:16</option></select></label>
+          <label class="local-field">Render quality<select name="local_size"><option value="640x360">Quick preview · 360p</option><option value="1280x720">HD · 720p</option><option value="1920x1080">Full HD · 1080p</option><option value="2560x1440">QHD · 1440p</option><option value="3840x2160">Ultra HD · 4K (slower)</option></select></label>
+          <label class="api-field" hidden>Scenes<input name="scene_count" type="number" min="1" max="5" value="3"></label>
+          <label class="api-field" hidden>Seconds per scene<input name="seconds_per_scene" type="number" min="4" max="12" value="6"></label>
+          <label class="api-field" hidden>Source resolution<select name="resolution"><option value="720p" selected>720p · about half the credits</option><option value="1080p">1080p</option></select></label>
+          <label class="api-field" hidden>Export resolution<select name="export_resolution"><option>720p</option><option selected>1080p</option><option>1440p</option><option value="2160p">4K</option></select></label>
+        </div>
+
+        <div class="toggle-grid">
+          <label class="toggle"><input name="audio" type="checkbox" checked><span class="switch" aria-hidden="true"></span><div>Voice &amp; audio<small>Give your story a voice</small></div></label>
+          <label class="toggle"><input name="burn_captions" type="checkbox" checked><span class="switch" aria-hidden="true"></span><div>On-screen captions<small>Make every word count</small></div></label>
+        </div>
+        <div class="api-field" hidden>
+          <label class="check"><input name="made_for_kids" type="checkbox"> Made for kids</label>
+          <label class="check"><input name="synthetic_disclosure" type="checkbox"> Disclose synthetic media</label>
+        </div>
+      </div>
+
+      <div class="panel cinematic-controls local-field reveal">
+        <div class="panel-title"><span class="number">03</span><div><h2>Cinematic production</h2><p>The cinematic-film engine, with a guided review workflow.</p></div></div>
+        <p class="sub-label">Film look</p>
+        <div class="look-grid" role="radiogroup" aria-label="Film look">
+          <label class="look-card"><input type="radio" name="look" value="studio" checked><span class="swatch sw-studio"></span><b>Studio</b><small>Bright editorial</small></label>
+          <label class="look-card"><input type="radio" name="look" value="wall"><span class="swatch sw-wall"></span><b>Evidence wall</b><small>Documentary</small></label>
+          <label class="look-card"><input type="radio" name="look" value="slate"><span class="swatch sw-slate"></span><b>Slate</b><small>Dark investigation</small></label>
+          <label class="look-card"><input type="radio" name="look" value="charcoal"><span class="swatch sw-charcoal"></span><b>Charcoal</b><small>Premium brand</small></label>
+          <label class="look-card"><input type="radio" name="look" value="blueprint"><span class="swatch sw-blueprint"></span><b>Blueprint</b><small>Science &amp; engineering</small></label>
+          <label class="look-card"><input type="radio" name="look" value="paper"><span class="swatch sw-paper"></span><b>Paper</b><small>Illustrated explainer</small></label>
+          <label class="look-card"><input type="radio" name="look" value="night"><span class="swatch sw-night"></span><b>Night</b><small>Technology &amp; space</small></label>
+        </div>
+        <div class="field-grid">
+          <label>Caption treatment<select name="caption_style"><option value="clean">Clean</option><option value="highlighter">Highlighter</option><option value="paper">Paper</option><option value="redbar">Red bar</option></select></label>
+          <label>Voice source<select name="voice_source"><option value="edge">Online speech · Edge TTS</option><option value="takes">My recorded takes · audio/takes</option><option value="lines">My recorded lines · audio/lines</option></select></label>
+          <label>Narration voice<select name="voice"><option value="bn-BD-NabanitaNeural">Bangla · Nabanita</option><option value="bn-BD-PradeepNeural">Bangla · Pradeep</option><option value="en-US-AriaNeural">English · Aria</option></select></label>
+        </div>
+        <div class="check-list">
+          <label class="check"><input name="review" type="checkbox" checked> Review the script, look and draft before the final export</label>
+          <label class="check"><input name="sfx" type="checkbox" checked> Synthesized sound effects and a loudness-normalized mix</label>
+          <label class="check"><input name="archive" type="checkbox"> Fetch licensed Wikimedia Commons photos</label>
+          <label class="check"><input name="maps" type="checkbox"> Include maps, routes and markers</label>
+          <label class="check"><input name="music" type="checkbox"> Mix my licensed score from audio/music.mp3</label>
+        </div>
+        <p class="muted">Open the project folder after planning to add your own photos, recordings or score. Archive downloads record their credits. Every stage saves its progress, so a failed stage can be retried.</p>
+      </div>
+    </div>
+
+    <aside class="create-aside">
+      <div class="panel sticky reveal">
+        <div class="tiny-label">Your production</div>
+        <h3>Choose your workflow</h3>
+        <label class="mode-card"><input type="radio" name="mode" value="local" checked><div><strong>✦ Local cinematic</strong><p>Plan, voice, maps, motion, sound and export with the cinematic-film engine. Uses your Codex sign-in.</p></div></label>
+        <label class="mode-card"><input type="radio" name="mode" value="demo"><div><strong>◈ Demo preview</strong><p>Test the pipeline with sample colored scenes. No API keys.</p></div></label>
+        <label class="mode-card"><input type="radio" name="mode" value="provider"><div><strong>▣ Connected providers</strong><p>Generate media with configured services. Provider credits may apply.</p></div></label>
+        <dl class="production-summary"><dt>Output</dt><dd id="output-summary">Cinematic animation + MP4</dd><dt>Saved to</dt><dd>This computer</dd><dt>Estimated cost</dt><dd id="cost-estimate">Codex planning only</dd></dl>
+        <button class="primary full big" id="submit-video">✦ Create my video <span aria-hidden="true">→</span></button>
+        <p class="privacy-note" id="mode-note">Internet required. Your prompt goes to Codex and narration text to the speech service. Nothing is published automatically.</p>
+      </div>
+      <div class="help-card reveal"><span aria-hidden="true">✧</span><h3>A small tip, a better film.</h3><p>Tell us who’s in the story, what happens, and how it ends. Add a mood to make it yours.</p></div>
+    </aside>
+  </form>
+</section>
+
+<!-- LIBRARY -->
+<section id="library" class="view" hidden>
+  <div class="page-heading reveal">
+    <div><div class="eyebrow">Your collection</div><h1>Every story, in one place.</h1><p>Follow the progress. Watch the result. Start the next chapter.</p></div>
+    <button class="primary" data-view="create"><span aria-hidden="true">＋</span> New video</button>
+  </div>
+  <div class="library-toolbar reveal">
+    <div class="filter-tabs" role="tablist"><button data-filter="all" class="active">All projects</button><button data-filter="ready">Ready to watch</button><button data-filter="active">In progress</button><button data-filter="failed">Needs attention</button></div>
+    <input id="search" type="search" placeholder="Search projects…" aria-label="Search projects">
+  </div>
+  <div id="all-projects" class="project-grid"></div>
+</section>
+
+<!-- PROVIDERS -->
+<section id="providers" class="view" hidden>
+  <div class="page-heading reveal">
+    <div><div class="eyebrow">Behind the scenes</div><h1>Your creative toolkit.</h1><p>Set the defaults for connected-provider productions.</p></div>
+    <button class="secondary" id="load-defaults">↻ Load saved defaults</button>
+  </div>
+  <div class="settings-layout">
+    <form id="provider-form" class="panel reveal">
+      <div class="panel-title"><span class="number">⚙</span><div><h2>Provider preferences</h2><p>API credentials stay in your local .env file.</p></div></div>
+      <div class="field-grid" id="provider-fields"></div>
+      <label>Story routing JSON<textarea name="story_routing" rows="5" placeholder="Optional routing configuration" spellcheck="false"></textarea></label>
+      <button class="primary">Save preferences</button>
+      <p class="muted">Blank fields use server settings. These settings apply to provider mode.</p>
+    </form>
+    <aside>
+      <div class="panel reveal">
+        <h3>Connection checks</h3>
+        <p class="muted">Run checks only when you need them.</p>
+        <div class="provider-checks">
+          <button data-check="openai">OpenAI <span>Test connection ↗</span></button>
+          <button data-check="elevenlabs">ElevenLabs <span>Check subscription ↗</span></button>
+          <button data-check="runway">Runway <span>Check account ↗</span></button>
+          <button data-check="muse">Muse Video <span>Check account ↗</span></button>
+          <button data-check="vertex">Vertex AI <span>Check account ↗</span></button>
+        </div>
+        <button class="secondary full" id="load-usage">View request history</button>
+        <button class="text-button" data-cost="openai">Read OpenAI costs →</button>
+        <button class="text-button" data-cost="runway">Read Runway credits →</button>
+        <pre id="provider-report" aria-live="polite"></pre>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<footer><span>Story Studio</span><span>A little imagination goes a long way. <b>✦</b></span><span>Local workspace · Node.js + Python</span></footer>
+</div>
+</main>
+</div>
+
+<dialog id="preview-dialog" aria-labelledby="preview-title">
+  <div class="dialog-heading">
+    <div><span class="eyebrow">Project details</span><h2 id="preview-title">Your story</h2></div>
+    <button id="close-dialog" class="icon-button" aria-label="Close preview">×</button>
+  </div>
+  <video id="video-preview" controls hidden></video>
+  <p id="job-state"></p>
+  <div class="dialog-actions">
+    <a id="download-video" class="primary" download="story-video.mp4" hidden>Download video ↓</a>
+    <a id="download-srt" class="secondary" download hidden>Subtitles ↓</a>
+    <button id="job-action" class="secondary" hidden></button>
+  </div>
+  <section id="cinematic-review" hidden>
+    <ol class="workflow-stages" id="workflow-stages"></ol>
+    <div id="stage-description"></div>
+    <div id="review-checks" class="review-checks" hidden></div>
+    <div id="preview-frames" class="preview-frames"></div>
+    <details id="beat-review"><summary>Script &amp; beat table</summary><pre id="beat-table"></pre></details>
+    <details><summary>Asset credits</summary><pre id="asset-credits"></pre></details>
+    <details id="revision-panel"><summary>Change the story or scene</summary>
+      <label>Revision notes<textarea id="revision-notes" rows="3" maxlength="6000" placeholder="Describe what you want to change…"></textarea></label>
+      <div class="dialog-actions"><button id="revise-plan" class="secondary" type="button">Revise the plan</button><button id="recheck-plan" class="text-button" type="button">Recheck files I edited →</button></div>
+    </details>
+    <div class="dialog-actions">
+      <button id="open-project-folder" class="secondary" type="button">Open project folder ↗</button>
+      <a id="download-credits" class="secondary" target="_blank">Credits ↗</a>
+      <a id="download-beats" class="secondary" target="_blank">Beat table ↗</a>
+      <button id="continue-stage" class="primary" hidden></button>
+    </div>
+  </section>
+  <details id="logs-block"><summary>Production log</summary><pre id="job-log"></pre></details>
+  <div id="publish-section" hidden>
+    <h3>Publishing</h3>
+    <form id="publish-form">
+      <div class="field-grid"><label>Platform<select name="platform"><option>youtube</option><option>facebook</option></select></label><label>Time (optional)<input name="schedule" type="datetime-local"></label></div>
+      <label class="check"><input name="public" type="checkbox"> Publish publicly</label>
+      <button class="primary">Schedule upload</button>
+    </form>
+    <div id="deliveries"></div>
+  </div>
+</dialog>
+<div id="toast" role="status" hidden></div>
+</body>
+</html>

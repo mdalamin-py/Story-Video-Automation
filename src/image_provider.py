@@ -33,6 +33,13 @@ def image_scene(scene, brief, folder, number, config):
         "model": model, "size": "1024x1536", "output_format": "png",
         "prompt": scene["visual_prompt"] + "\nVisual style: " + brief["style"],
     }
+    if not vertex and model.startswith("gpt-image"):
+        # "auto" may pick high quality, which costs several times medium for a frame that is
+        # later scaled and captioned; medium is the default, IMAGE_QUALITY overrides it.
+        quality = os.environ.get("IMAGE_QUALITY", "").strip().lower() or "medium"
+        if quality not in {"low", "medium", "high", "auto"}:
+            raise ValueError("IMAGE_QUALITY must be low, medium, high or auto.")
+        payload["quality"] = quality
     endpoint = vertex[0] if vertex else "https://api.openai.com/v1/images/generations"
     if vertex:
         payload = {"instances": [{"prompt": payload["prompt"]}],

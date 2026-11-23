@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from providers import ProviderHTTPError, request
+from providers import ProviderHTTPError, cached_story, request, save_story, story_cache_path
 
 
 class Scene(BaseModel):
@@ -39,6 +39,7 @@ class Provider(BaseModel):
     token_limit: int = Field(default=4096, ge=128, le=32768)
     token_parameter: Literal["max_tokens", "max_completion_tokens"] = "max_tokens"
     temperature: float | None = Field(default=None, ge=0, le=2)
+    reasoning_effort: Literal["minimal", "low", "medium", "high"] | None = None
 
     @model_validator(mode="after")
     def validate_url(self):
@@ -89,6 +90,10 @@ def generate_story(config: Routing, brief: dict, instructions: str) -> dict:
         if not 0 <= budget < float("inf"):
             raise ValueError("STORY_BUDGET_USD must be finite and nonnegative.")
         remaining = min(remaining, budget)
+    # Any provider's plan for the identical brief and instructions is reused before spending again.
+    cache = story_cache_path("story-router", instructions, brief)
+    if (plan := cached_story(cache)) is not None and len(plan.get("scenes", [])) == brief["scene_count"]:
+        return plan
     failures = []
     for provider in config.candidates():
         key = os.environ.get(provider.key_env, "").strip()
@@ -108,6 +113,8 @@ def generate_story(config: Routing, brief: dict, instructions: str) -> dict:
         }
         if provider.temperature is not None:
             payload["temperature"] = provider.temperature
+        if provider.reasoning_effort is not None:
+            payload["reasoning_effort"] = provider.reasoning_effort
         for attempt in range(2):
             if provider.estimated_usd > remaining:
                 failures.append(f"{provider.name}: estimated budget exceeded")
@@ -134,7 +141,9 @@ def generate_story(config: Routing, brief: dict, instructions: str) -> dict:
             if failures:
                 print("Provider routing: " + "; ".join(failures), flush=True)
             print(f"Story provider: {provider.name} ({time.monotonic() - started:.2f}s)", flush=True)
-            return story.model_dump()
+            plan = story.model_dump()
+            save_story(cache, plan)
+            return plan
         if not config.fallback:
             break
     raise RuntimeError("No eligible story provider completed the request. " + "; ".join(failures))

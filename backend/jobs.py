@@ -58,8 +58,11 @@ def enqueue(brief, demo):
 
 def get_jobs():
     with closing(connect()) as db:
-        return [dict(row) for row in db.execute(
-            "SELECT id,demo,state,run,error,created FROM jobs ORDER BY created DESC, id DESC LIMIT 100")]
+        rows = [dict(row) for row in db.execute(
+            "SELECT id,demo,state,run,error,created,brief FROM jobs ORDER BY created DESC, id DESC LIMIT 100")]
+        for row in rows:
+            row["title"] = json.loads(row.pop("brief")).get("story", "Untitled story")[:90]
+        return rows
 
 
 def claim():

@@ -3,6 +3,6 @@ runs/
 __pycache__/
 input/story-providers.json
 node_modules/
-.next/
-next-env.d.ts
 *.tsbuildinfo
+
+.venv/

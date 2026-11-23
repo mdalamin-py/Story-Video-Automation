@@ -1,0 +1,43 @@
+Story Video Automation — Python + Node.js
+========================================
+
+চালানো
+১. D:\Story-Video-Automation খুলুন।
+২. studio.cmd ডাবল ক্লিক করুন। Browser নিজে খুলবে।
+৩. Create a video চাপুন। Story or idea বক্সে গল্প লিখুন।
+৪. Local cinematic বেছে ভাষা, look, duration, frame, quality ঠিক করুন।
+৫. Cinematic production-এ voice source, caption style, sound effects,
+   Commons photos এবং maps নির্বাচন করুন। Create my video চাপুন।
+
+Cinematic-skill-এর মতো review workflow
+১. Script/beat table দেখে Approve script চাপুন।
+২. Voice, assets, preview frames ও contact sheet তৈরি হবে।
+৩. Look দেখে Approve look চাপুন; draft তৈরি হবে।
+৪. Draft দেখে Approve draft চাপুন; sound mix ও final export হবে।
+৫. Video, SRT এবং credits download করুন।
+
+শুরুতেই review checkbox তুলে দিলে plan-এর পরে সব render stage স্বয়ংক্রিয়ভাবে চলবে।
+একটি কাজ ব্যর্থ হলে log পড়ুন, কারণ ঠিক করুন, Retry failed stage চাপুন।
+গল্প পাল্টাতে Change the story or scene-এ revision notes দিন।
+Open project folder দিয়ে নিজের ছবি/recording/music যোগ করা যাবে।
+Script নিজে বদলালে Recheck files I edited চাপুন; look/draft আবার যাচাই করুন।
+
+Voice source
+Online Edge TTS: ইন্টারনেট লাগে; narration text speech service-এ যায়।
+Recorded takes: audio/takes/<take-name>.wav, script.json অনুযায়ী।
+Recorded lines: audio/lines/seg01.wav, seg02.wav ইত্যাদি, line ID অনুযায়ী।
+নিজের background score: audio/music.mp3; narration enabled রাখতে হবে।
+নিজের ব্যবহারের অধিকার আছে এমন asset/score দিন এবং credits-এ লিখুন।
+
+Output: runs/local/<project>/out/final-bangla.mp4
+Subtitle: out/captions.bn.srt
+Review files: beats.md, credits.md, out/probe এবং out/draft.mp4
+Validation: out/verification.json
+Progress: pipeline.json ও production.log
+
+শুধু Python ও plain Node.js। সব Python package এক requirements.txt-তে।
+Install command: python -m pip install -r requirements.txt
+FFmpeg/FFprobe system tool হিসেবে থাকতে হবে।
+স্টোরি/scene plan তৈরির জন্য Codex CLI-তে login দরকার।
+এই mode code animation তৈরি করে; generated real footage বলে দাবি করে না।
+কোনো ভিডিও নিজে থেকে publish হয় না।

@@ -43,17 +43,20 @@ The database claim guards prevent a duplicate dispatch from starting the
 same row twice. Interrupted provider requests still require reconciliation.
 Keep the media volume on the same Docker host as workers and the API.
 
-## Next.js dashboard
+## Node.js dashboard (local Windows studio)
 
-From the project root, run npm ci, npm run build, and npm run start.
-The dashboard runs on port 3000 and proxies API requests to port 8765.
-Set STUDIO_API_URL before the build if FastAPI uses a different address.
-The admin token stays in page memory. The classic dashboard remains on
-the FastAPI port.
+Run `studio.cmd` or `npm start` from the project root with Node.js 22+ and
+Python dependencies installed. No Next.js build or npm packages are needed.
+The Node supervisor starts the API, worker and static dashboard and opens
+the printed local URL. Reserved ports automatically fall back to an available port.
+The browser has an HttpOnly local session; the API token stays on the server.
+The server only accepts loopback hosts and same-origin requests.
 
-The Next.js build and local SQLite test suite were verified on Windows.
-Run Compose and verify PostgreSQL, Redis, Celery, and a demo render on a
-Docker host before deploying with live API credentials.
+For a separately supervised dashboard, run `npm run dashboard` with
+`STUDIO_API_URL` and `STUDIO_ADMIN_TOKEN` configured to match the API.
+The local cinematic workflow additionally needs Codex login and the Python
+cinematic/voice environment. This dashboard is designed for local use;
+the distributed Docker backend still requires its infrastructure acceptance tests.
 
 ## Asset archive and worker status
 
@@ -83,7 +86,7 @@ Load studio-alerts.yaml as a Prometheus rule file and use story-video-studio as 
 
 ## Recover a failed job
 
-Use Recover from the Next.js queue to retry a failed demo. A real job
+Use Recover from the Node.js video library to retry a failed demo. A real job
 can be recovered if its render receipt and local MP4 exist. The worker
 retries the archive of that existing MP4. Paid render failures without
 a completed preview and interrupted uploads require provider or platform
