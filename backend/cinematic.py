@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / 'skills/cinematic-film/scripts'
 HELPERS = ROOT / 'tools/windows-bangla'
 LOOK_REVIEW = ROOT / 'tools/review_look.py'
+FINAL = 'out/final-video.mp4'      # projects made before multi-language support used out/final-bangla.mp4
 LOOKS = {'studio', 'wall', 'slate', 'charcoal', 'blueprint', 'paper', 'night'}
 WAITING = {'AWAITING_SCRIPT', 'AWAITING_LOOK', 'AWAITING_DRAFT'}
 
@@ -181,9 +182,14 @@ Use the selected look, render aspect and duration. Design actual illustrations o
 not generic scene-number cards. Drawn illustration is fine; never pretend generated art is evidence.
 Use archival Commons assets only if archive=true. If maps=true, provide map.json compatible with make_map.py.
 Keep scene.py independent of timing files at import; use doc inside build_film.
-Bangla doc.W uses Unicode letter shares (approximate word timing); do not claim exact word alignment.
+Write the narration (spoken), captions (text) and on-screen words in the selected language:
+{self.config['language']}. Keep names and brands as they are normally written in that language.
+The engine shapes every script (Devanagari, Bengali, Tamil, Arabic/Urdu right to left, Chinese,
+Japanese, Korean, Thai, ...) and picks a font for it, so on-screen text can be in that language.
+doc.W times words by Unicode letter shares (approximate word timing); do not claim exact alignment.
+In languages without spaces between words (Chinese, Japanese, Thai) time items with doc.L/doc.E.
 Keep narration short enough for the requested duration; speak numbers as words. Use the selected language.
-Use large readable text; Bangla captions will be shaped by FFmpeg/libass. Read the engine API before writing code.
+Use large readable text; captions are shaped by FFmpeg/libass in a font for their script. Read the engine API before writing code.
 Do not render, synthesize voice, run paid media APIs, upload, change dependencies, or edit other projects.
 When the plan files exist, run: "{sys.executable}" -X utf8 "{SCRIPTS/'make_beats.py'}" --project "{self.folder}"
 then read the Lint section at the end of beats.md and fix every warning in script.json (and scene.py if needed),
@@ -357,14 +363,14 @@ Finish by describing the plan briefly. Never print credentials.'''
         self.render('final.mp4',audio=audio)
         if self.config['captions']:
             self.step('captions',HELPERS/'bangla_tools.py','captions','--project',self.folder,
-                      '--video',self.folder/'out/final.mp4','--out',self.folder/'out/final-bangla.mp4',
+                      '--video',self.folder/'out/final.mp4','--out',self.folder/FINAL,
                       '--style',self.config['caption_style'])
         else:
-            shutil.copy2(self.folder/'out/final.mp4',self.folder/'out/final-bangla.mp4')
+            shutil.copy2(self.folder/'out/final.mp4',self.folder/FINAL)
             self.step('subtitle file',HELPERS/'bangla_tools.py','captions','--project',self.folder)
-        report=self.verify(self.folder/'out/final-bangla.mp4')
+        report=self.verify(self.folder/FINAL)
         write(self.folder/'out/verification.json',report)
-        self.state['artifacts']=['out/final-bangla.mp4','out/captions.bn.srt','credits.md','beats.md','out/verification.json']
+        self.state['artifacts']=[FINAL,'out/captions.srt','credits.md','beats.md','out/verification.json']
         self.save('READY_TO_PUBLISH','complete')
 
     def run(self, action):

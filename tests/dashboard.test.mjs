@@ -42,6 +42,17 @@ test('local submissions persist, complete, and support seekable MP4 downloads',a
  const video=await f.call(`/local/jobs/${id}/video`,{headers:{Range:'bytes=2-5'}});assert.equal(video.status,206);assert.equal(await video.text(),'2345');
  assert.equal((await f.call(`/local/jobs/${id}/video`,{headers:{Range:'bytes=999-'}})).status,416);
 });
+test('serves the language list and finds films and subtitles under the neutral names',async t=>{
+ const f=await fixture(t,{runJob:async folder=>{await mkdir(path.join(folder,'out'));await writeFile(path.join(folder,'out','final-video.mp4'),Buffer.from('film'));await writeFile(path.join(folder,'out','captions.srt'),'1\n00:00:00,000 --> 00:00:01,000\nचाय\n');}});
+ for(const file of ['/','/app.js','/style.css','/languages.json'])assert.equal((await f.call(file)).headers.get('cache-control'),'no-cache');
+ const languages=await(await f.call('/languages.json')).json();
+ assert.ok(languages.some(l=>l.code==='hi-IN')&&languages.some(l=>l.code==='zh-CN')&&languages.some(l=>l.code==='ur-PK'));
+ const {id}=await(await f.call('/local/jobs',{method:'POST',body:JSON.stringify({prompt:'चाय की कहानी',options:{language:'Hindi (हिन्दी)',voice:'hi-IN-SwaraNeural'}})})).json();
+ let row;for(let i=0;i<50;i++){[row]=await(await f.call('/local/jobs')).json();if(row.state==='READY_TO_PUBLISH')break;await new Promise(r=>setTimeout(r,10));}
+ assert.equal(row.state,'READY_TO_PUBLISH');
+ assert.equal(await(await f.call(`/local/jobs/${id}/video`)).text(),'film');
+ const srt=await f.call(`/local/jobs/${id}/subtitles`);assert.match(srt.headers.get('content-disposition'),/captions\.srt/);assert.match(await srt.text(),/चाय/);
+});
 test('failed local work stays failed and stale running records become interrupted',async t=>{
  const f=await fixture(t,{runJob:async()=>{throw Error('Speech service unavailable');}});
  await f.call('/local/jobs',{method:'POST',body:'{"prompt":"A story"}'});let row;

@@ -31,7 +31,7 @@
     <div class="side-note">
       <span class="side-reel" aria-hidden="true"></span>
       <strong>A little idea. A great story.</strong>
-      <p>Script, voice, camera moves, sound and Bangla captions, made in one place.</p>
+      <p>Script, voice, camera moves, sound and captions in your language, made in one place.</p>
       <button data-view="create">Start creating <span aria-hidden="true">→</span></button>
     </div>
     <div class="profile"><span class="avatar">ME</span><div>Personal workspace<small>Saved on this computer</small></div><span class="online-dot" aria-hidden="true"></span></div>
@@ -66,7 +66,7 @@
     <div class="hero-copy">
       <span class="hero-tag"><i></i> From a single idea</span>
       <h2>Every great film<br>starts with a <em>story</em>.</h2>
-      <p>Write your idea. We plan the beats, record the voice, move the camera across one designed world, and finish with sound and Bangla captions.</p>
+      <p>Write your idea. We plan the beats, record the voice, move the camera across one designed world, and finish with sound and captions in any of 38 languages.</p>
       <div class="hero-buttons">
         <button class="accent-button" data-view="create">Bring your story to life <span aria-hidden="true">→</span></button>
         <button class="ghost-button" data-view="library">Watch your films</button>
@@ -132,19 +132,19 @@
   <form id="create-form" class="create-layout">
     <div class="form-main">
       <div class="panel reveal">
-        <div class="panel-title"><span class="number">01</span><div><h2>The story comes first</h2><p>আপনার গল্প বা ভিডিওর idea নিচে লিখুন।</p></div></div>
+        <div class="panel-title"><span class="number">01</span><div><h2>The story comes first</h2><p>Write in any language. The film follows the Language you choose below.</p></div></div>
         <label for="story">Your story or idea <span class="field-tag">Required</span></label>
-        <textarea id="story" name="story" rows="8" maxlength="24000" placeholder="বৃষ্টির বিকেলে মীরা একটি কাগজের নৌকা বানিয়ে ভাসিয়ে দিল…" required></textarea>
+        <textarea id="story" name="story" rows="8" maxlength="24000" placeholder="On a rainy afternoon, Mira folds a paper boat for her little brother… (any language: বাংলা, हिन्दी, اردو, 中文, Español…)" required></textarea>
         <div class="input-footer"><span>Who is in it, what happens, how it ends.</span><span id="char-count">0 / 24,000</span></div>
         <div class="template-row"><span>Try an idea</span><button type="button" data-template="story">Short story</button><button type="button" data-template="brand">Brand film</button><button type="button" data-template="explainer">Explainer</button></div>
         <label for="changes">Director’s notes <span class="field-tag">Optional</span></label>
-        <textarea id="changes" name="final_changes" rows="3" maxlength="6000" placeholder="শেষ দৃশ্যে উষ্ণ আলো চাই। শান্ত নারী কণ্ঠ এবং সবুজ রং ব্যবহার করো।"></textarea>
+        <textarea id="changes" name="final_changes" rows="3" maxlength="6000" placeholder="Warm light in the last scene. A calm female voice. Use green tones."></textarea>
       </div>
 
       <div class="panel reveal">
         <div class="panel-title"><span class="number">02</span><div><h2>Make it feel like you</h2><p>Set the mood, language and format.</p></div></div>
         <div class="field-grid">
-          <label>Language<select name="language"><option>বাংলা</option><option>English</option></select></label>
+          <label>Language<select name="language" id="language"><option value="Bangla (বাংলা)" data-code="bn-BD">বাংলা · Bangla</option><option value="English (US)" data-code="en-US">English (US)</option></select></label>
           <label>Visual mood<select name="style"><option>Cinematic, warm natural light</option><option>Playful illustrated storytelling</option><option>Minimal editorial, clean typography</option><option>Moody documentary, evidence board</option><option>Modern product film, studio lighting</option></select></label>
           <label class="local-field">Video length<select name="duration"><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="60">60 seconds</option><option value="90">90 seconds</option></select></label>
           <label class="local-field">Frame<select name="aspect"><option value="16:9">Landscape · 16:9</option><option value="9:16">Reels / Shorts · 9:16</option></select></label>
@@ -181,7 +181,7 @@
         <div class="field-grid">
           <label>Caption treatment<select name="caption_style"><option value="clean">Clean</option><option value="highlighter">Highlighter</option><option value="paper">Paper</option><option value="redbar">Red bar</option></select></label>
           <label>Voice source<select name="voice_source"><option value="edge">Online speech · Edge TTS</option><option value="takes">My recorded takes · audio/takes</option><option value="lines">My recorded lines · audio/lines</option></select></label>
-          <label>Narration voice<select name="voice"><option value="bn-BD-NabanitaNeural">Bangla · Nabanita</option><option value="bn-BD-PradeepNeural">Bangla · Pradeep</option><option value="en-US-AriaNeural">English · Aria</option></select></label>
+          <label>Narration voice<select name="voice" id="voice"><option value="bn-BD-NabanitaNeural">Nabanita · female</option><option value="bn-BD-PradeepNeural">Pradeep · male</option></select></label>
         </div>
         <div class="check-list">
           <label class="check"><input name="review" type="checkbox" checked> Review the script, look and draft before the final export</label>

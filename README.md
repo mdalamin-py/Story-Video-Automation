@@ -1,13 +1,13 @@
 <h1 align="center">Story Video Automation</h1>
 
-<p align="center"><b>Turn a story into a narrated cinematic film, with Bangla voice and captions.</b><br>
+<p align="center"><b>Turn a story into a narrated cinematic film, with voice and captions in 38 languages.</b><br>
 Write an idea, approve the script, the look and a draft, and download the MP4, subtitles and credits.</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat&logo=python&logoColor=white" alt="Python 3.12" />
   <img src="https://img.shields.io/badge/Node.js-22%2B-339933?style=flat&logo=nodedotjs&logoColor=white" alt="Node.js 22+" />
   <img src="https://img.shields.io/badge/FFmpeg-required-007808?style=flat&logo=ffmpeg&logoColor=white" alt="FFmpeg" />
-  <img src="https://img.shields.io/badge/language-বাংলা%20%7C%20English-f2b544?style=flat" alt="Bangla and English" />
+  <img src="https://img.shields.io/badge/languages-38-f2b544?style=flat" alt="38 languages" />
   <img src="https://img.shields.io/badge/AI-OpenAI%20%C2%B7%20Claude%20%C2%B7%20Gemini%20%C2%B7%20Muse%20%C2%B7%20Runway-24292f?style=flat" alt="OpenAI, Claude, Gemini, Muse, Runway" />
 </p>
 
@@ -17,7 +17,7 @@ Write an idea, approve the script, the look and a draft, and download the MP4, s
 
 - **Local cinematic films for free.** The bundled cinematic-film engine draws every frame in code:
   one continuous camera over a designed world, stamps, counters, maps and photos timed to the narration.
-  Voice (Edge TTS), sound effects, mixing, rendering and Bangla captions all run on your computer.
+  Voice (Edge TTS), sound effects, mixing, rendering and captions all run on your computer.
 - **You approve each step.** Script and beat table, then preview frames and contact sheets, then a
   30-second draft, then the final export. Automatic checks flag script, look and voice problems first.
 - **Any AI, per video.** Pick Gemini, OpenAI or Claude for the story, or Auto for the cheapest connected
@@ -46,6 +46,28 @@ studio.cmd
 The dashboard opens in your browser. Choose **Create a video**, write your story (Bangla or English),
 pick a film look, and press **Create my video**. Local cinematic mode needs FFmpeg on PATH and a
 signed-in Codex CLI for planning; provider mode needs the API keys listed in `.env.example`.
+
+## Any language
+
+Pick the language on the Create page and the voice list switches to that language. The planner
+writes the narration, captions and on-screen words in it, and every script renders correctly:
+
+| Region | Languages |
+| --- | --- |
+| South Asia | Bangla, Hindi, Urdu, Tamil, Telugu, Marathi, Gujarati, Malayalam, Kannada, Nepali, Sinhala, Pashto, English (India) |
+| East and Southeast Asia | Chinese (Mandarin, Taiwan), Japanese, Korean, Thai, Vietnamese, Indonesian, Malay, Filipino |
+| Middle East and Africa | Arabic (Saudi, Egypt), Persian, Turkish, Swahili |
+| Europe and the Americas | English (US, UK), Spanish (Spain, Mexico), Portuguese (Brazil), French, German, Italian, Russian |
+
+- **On-screen text** is shaped with HarfBuzz in a font for its script: joined Devanagari and Bengali,
+  right-to-left Urdu and Arabic, Chinese, Japanese and Korean in their own fonts.
+- **Captions** pick their font from the text (Nirmala UI, Segoe UI, Microsoft YaHei, Yu Gothic,
+  Malgun Gothic, Leelawadee UI…) and long Chinese or Japanese lines wrap evenly.
+- **Timing** counts a Chinese character as a syllable, so script-length checks hold in every language.
+- Narration uses free Edge TTS voices (two or more per language); Punjabi has no Edge voice yet.
+  You can also record your own takes in any language.
+
+Films are saved as `out/final-video.mp4` with `out/captions.srt` (older projects keep their names).
 
 ## How a film is made
 

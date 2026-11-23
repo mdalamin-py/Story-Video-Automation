@@ -23,6 +23,7 @@ import json
 import math
 import pathlib
 import re
+import unicodedata
 
 import numpy as np
 import skia
@@ -268,8 +269,80 @@ def paint(rgb=(0, 0, 0), a=1.0, stroke=None, blur=None, aa=True):
     return p
 
 
+# --- Any-language text -------------------------------------------------------------------------
+# Latin text keeps the per-character path below (tracking, typewriter reveal). Text in a script that
+# needs shaping (Devanagari, Bengali, Arabic/Urdu, Thai, ...) or that the role font cannot draw (CJK,
+# Hangul, ...) is shaped as one run with HarfBuzz, in a system font chosen for that script, and drawn
+# right to left for Arabic-script and Hebrew text. Tracking is skipped there: spacing breaks joins.
+_COMPLEX = ((0x0590, 0x08FF), (0x0900, 0x0DFF), (0x0E00, 0x0EFF), (0x0F00, 0x109F), (0x1780, 0x17FF),
+            (0xA8E0, 0xA8FF), (0xFB1D, 0xFDFF), (0xFE70, 0xFEFF))
+_RTL = ((0x0590, 0x08FF), (0xFB1D, 0xFDFF), (0xFE70, 0xFEFF))
+_SCRIPT_FONTS = {}
+
+
+def _within(ch, ranges):
+    o = ord(ch)
+    return any(lo <= o <= hi for lo, hi in ranges)
+
+
+def _lang_hint(text):
+    """BCP-47 hint so Han characters get a Chinese, Japanese or Korean font as the text implies."""
+    if any(0x3040 <= ord(ch) <= 0x30FF for ch in text):
+        return ["ja"]
+    if any(0xAC00 <= ord(ch) <= 0xD7AF or 0x1100 <= ord(ch) <= 0x11FF for ch in text):
+        return ["ko"]
+    if any(0x4E00 <= ord(ch) <= 0x9FFF for ch in text):
+        return ["zh-Hans"]
+    return []
+
+
+def _shaped_font(res, font, size, text):
+    """(font, right_to_left) when text needs shaping or another script's font; None for plain Latin."""
+    base = res.font(font, size)
+    glyphs = base.textToGlyphs(text)
+    probe = next((ch for ch, g in zip(text, glyphs) if _within(ch, _COMPLEX) or (g == 0 and not ch.isspace())), None)
+    if probe is None:
+        return None
+    style = base.getTypeface().fontStyle()
+    langs = _lang_hint(text)
+    key = (base.getTypeface().getFamilyName(), style.weight(), tuple(langs), unicodedata.name(probe, "?").split()[0])
+    if key not in _SCRIPT_FONTS:
+        tf = skia.FontMgr.RefDefault().matchFamilyStyleCharacter("", style, langs, ord(probe))
+        _SCRIPT_FONTS[key] = tf or base.getTypeface()
+    f = skia.Font(_SCRIPT_FONTS[key], size)
+    f.setSubpixel(True); f.setEdging(skia.Font.Edging.kAntiAlias)
+    return f, any(_within(ch, _RTL) for ch in text)
+
+
+def _shaped_width(text, f, rtl):
+    """Advance width of the shaped glyphs (the blob's bounds are padded, which would skew centring)."""
+    blob = skia.TextBlob.MakeFromShapedText(text, f, not rtl) if text else None
+    return float(sum(sum(f.getWidths(list(run.fGlyphIndices))) for run in blob)) if blob else 0.0
+
+
+def _reveal_cut(text, n):
+    """First n characters, extended so a base letter keeps its vowel signs and marks."""
+    n = max(0, min(len(text), n))
+    while 0 < n < len(text) and unicodedata.category(text[n]).startswith("M"):
+        n += 1
+    return text[:n]
+
+
 def draw_text(c, res, text, x, y, size, font="serif", rgb=CREAM, a=1.0, track=0.0, align="left", reveal=None):
     """Draw text with letter tracking (em fraction). reveal=n draws only the first n characters."""
+    shaped = _shaped_font(res, font, size, text)
+    if shaped:
+        f, rtl = shaped
+        total = _shaped_width(text, f, rtl)
+        x0 = x - total / 2 if align == "center" else x - total if align == "right" else x
+        part = text if reveal is None else _reveal_cut(text, int(reveal))
+        blob = skia.TextBlob.MakeFromShapedText(part, f, not rtl) if part else None
+        if blob:
+            # Right-to-left text grows from its right edge as it is revealed.
+            dx = x0 + total - _shaped_width(part, f, rtl) if rtl else x0
+            # The shaper lays out from the top of the line; shift up by the ascent so y is the baseline.
+            c.drawTextBlob(blob, dx, y + f.getMetrics().fAscent, paint(rgb, a))
+        return total
     f = res.font(font, size)
     widths = f.getWidths(f.textToGlyphs(text))
     gap = track * size
@@ -287,6 +360,9 @@ def draw_text(c, res, text, x, y, size, font="serif", rgb=CREAM, a=1.0, track=0.
 
 
 def text_width(res, text, size, font="serif", track=0.0):
+    shaped = _shaped_font(res, font, size, text)
+    if shaped:
+        return _shaped_width(text, *shaped)
     f = res.font(font, size)
     return sum(f.getWidths(f.textToGlyphs(text))) + track * size * (len(text) - 1)
 

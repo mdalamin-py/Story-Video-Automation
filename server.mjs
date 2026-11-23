@@ -10,6 +10,9 @@ import {Readable} from 'node:stream';
 export const ROOT=path.dirname(fileURLToPath(import.meta.url));
 const SHARED=String.raw`C:\Users\HP\Documents\Codex\2026-11-22\d-video-maker-cinematic-skill\work`;
 export function pythonFor(root){return process.env.STUDIO_PYTHON || [path.join(root,'.venv','Scripts','python.exe'),path.join(SHARED,'cinematic-venv','Scripts','python.exe')].find(existsSync) || 'python';}
+// Finished films and subtitles have neutral names; projects from before multi-language support keep theirs.
+const finalVideo=folder=>[path.join(folder,'out','final-video.mp4'),path.join(folder,'out','final-bangla.mp4')].find(existsSync)||path.join(folder,'out','final-video.mp4');
+const subtitleFile=folder=>[path.join(folder,'out','captions.srt'),path.join(folder,'out','captions.bn.srt')].find(existsSync)||path.join(folder,'out','captions.srt');
 const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
 async function body(req){const chunks=[];let size=0;for await(const c of req){size+=c.length;if(size>160000)throw Object.assign(Error('Request is too large'),{status:413});chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw Object.assign(Error('Invalid JSON'),{status:400});}}
 async function media(req,res,file){
@@ -30,7 +33,7 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
   running.set(id,true);row.state='RUNNING';row.error=null;await saveRow(folder,row);
   const finish=async(code,error)=>{
    const pipeline=await readJSON(path.join(folder,'pipeline.json'));
-   row.state=code===0?(pipeline.status||(existsSync(path.join(folder,'out','final-bangla.mp4'))?'READY_TO_PUBLISH':'FAILED')):'FAILED';
+   row.state=code===0?(pipeline.status||(existsSync(finalVideo(folder))?'READY_TO_PUBLISH':'FAILED')):'FAILED';
    row.error=error||pipeline.error||(row.state==='FAILED'?'Production stopped. Read the production log.':null);
    row.stage=pipeline.stage;running.delete(id);await saveRow(folder,row);
   };
@@ -54,7 +57,7 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
  async function localJobs(){await mkdir(jobsRoot,{recursive:true});const rows=[];for(const name of await readdir(jobsRoot)){
   if(!/^[a-zA-Z0-9_-]+$/.test(name))continue;
   try{const row=JSON.parse(await readFile(path.join(jobsRoot,name,'dashboard-job.json'),'utf8'));const pipeline=await readJSON(path.join(jobsRoot,name,'pipeline.json'));if(pipeline.status){if(!running.has(name))row.state=pipeline.status;row.stage=pipeline.stage;row.error=pipeline.error;row.pipeline=pipeline;}if(['RUNNING','QUEUED'].includes(row.state)&&!running.has(name)){row.state='INTERRUPTED';row.error='The studio stopped before this job finished. Inspect the run before retrying.';}row.thumb=await thumbnail(path.join(jobsRoot,name));rows.push(row);}catch{
-   const final=path.join(jobsRoot,name,'out','final-bangla.mp4');
+   const final=finalVideo(path.join(jobsRoot,name));
    if(existsSync(final)){
     const info=await stat(final);let title='Local cinematic film';
     try{title=JSON.parse(await readFile(path.join(jobsRoot,name,'script.json'),'utf8')).title||title;}catch{}
@@ -114,8 +117,8 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
     return json(res,405,{detail:'Method not allowed'});
    }
    const local=/^\/local\/jobs\/([a-zA-Z0-9_-]+)\/(video|log|subtitles)$/.exec(url.pathname);
-   if(local){const folder=path.join(jobsRoot,local[1]);if(local[2]==='video')return await media(req,res,path.join(folder,'out','final-bangla.mp4'));
-    if(local[2]==='subtitles'){res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','Content-Disposition':'attachment; filename="captions.bn.srt"'});return res.end(await readFile(path.join(folder,'out','captions.bn.srt')));}
+   if(local){const folder=path.join(jobsRoot,local[1]);if(local[2]==='video')return await media(req,res,finalVideo(folder));
+    if(local[2]==='subtitles'){res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','Content-Disposition':'attachment; filename="captions.srt"'});return res.end(await readFile(subtitleFile(folder)));}
     let text='';for(const file of ['run.log','production.log','dashboard.log','result.txt'])try{text+='\n'+await readFile(path.join(folder,file),'utf8');}catch{}
     return json(res,200,{log:text.slice(-60000)||'Starting the local video agent…'});
    }
@@ -128,11 +131,11 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
     const resultHeaders={};for(const name of ['content-type','content-length','content-range','accept-ranges','location','content-disposition'])if(upstream.headers.has(name))resultHeaders[name]=upstream.headers.get(name);
     res.writeHead(upstream.status,resultHeaders);if(upstream.body)Readable.fromWeb(upstream.body).pipe(res);else res.end();return;
    }
-   const files={'/':'index.html','/app.js':'app.js','/style.css':'style.css'};const file=files[url.pathname];
+   const files={'/':'index.html','/app.js':'app.js','/style.css':'style.css','/languages.json':'languages.json'};const file=files[url.pathname];
    if(!file)return json(res,404,{detail:'Not found'});
    if(!['GET','HEAD'].includes(req.method))return json(res,405,{detail:'Method not allowed'});
-   const mime=file.endsWith('.css')?'text/css':file.endsWith('.js')?'text/javascript':'text/html';
-   res.writeHead(200,{'Content-Type':mime+'; charset=utf-8','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','Content-Security-Policy':"default-src 'self'; style-src 'self'; script-src 'self'; media-src 'self' blob: https:; img-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'",...(file==='index.html'?{'Set-Cookie':`studio=${session}; HttpOnly; SameSite=Strict; Path=/`}:{})});
+   const mime=file.endsWith('.css')?'text/css':file.endsWith('.js')?'text/javascript':file.endsWith('.json')?'application/json':'text/html';
+   res.writeHead(200,{'Content-Type':mime+'; charset=utf-8','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','Content-Security-Policy':"default-src 'self'; style-src 'self'; script-src 'self'; media-src 'self' blob: https:; img-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'",...(file==='index.html'?{'Set-Cookie':`studio=${session}; HttpOnly; SameSite=Strict; Path=/`}:{})});
    res.end(req.method==='HEAD'?undefined:await readFile(path.join(root,'web',file)));
   }catch(error){if(res.headersSent){res.destroy();return;}json(res,error.code==='ENOENT'?404:error.status||500,{detail:error.code==='ENOENT'?'File not available':error.message});}
  });

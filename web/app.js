@@ -85,10 +85,11 @@ function rollTo(el, value) {
 }
 
 /* ---------- Templates & character count ---------- */
+// Written in English; the planner tells the story in whichever Language is selected.
 const templates = {
-  story: 'বৃষ্টির বিকেলে মীরা একটি কাগজের নৌকা বানিয়ে ছোট ভাইকে দিল। নৌকা জলে ভেসে গেলে তারা আনন্দে হাততালি দেয়। এই গল্প নিয়ে একটি কোমল cinematic animation বানাও।',
-  brand: 'Fresh Tea ব্র্যান্ডের জন্য একটি cinematic বিজ্ঞাপন বানাও। চা বাগান, সবুজ পাতা এবং গরম চায়ের কাপ দেখাও। শেষে লিখবে “প্রতিটি চুমুকে সতেজতা”।',
-  explainer: 'চা পাতা থেকে এক কাপ চা কীভাবে তৈরি হয় তা সহজভাবে বোঝাও। পাতা সংগ্রহ, প্রক্রিয়াজাতকরণ এবং চা বানানোর ধাপ দেখাও।'
+  story: 'On a rainy afternoon, Mira folds a paper boat for her little brother. When it floats away on the water, they clap with joy. Make a gentle cinematic animation of this story.',
+  brand: 'A cinematic advert for the Fresh Tea brand: a tea garden, green leaves and a hot cup of tea. End on the line "Freshness in every sip".',
+  explainer: 'Explain simply how a cup of tea is made from the tea leaf: picking the leaves, processing them, and brewing the tea.'
 };
 $$('[data-template]').forEach(el => el.addEventListener('click', () => {
   $('#story').value = templates[el.dataset.template]; count(); view('create'); $('#story').focus();
@@ -258,9 +259,32 @@ $('#create-form').addEventListener('submit', async event => {
   } catch (e) { notice(e.message); window.scrollTo({top: 0, behavior: 'smooth'}); }
   finally { button.disabled = false; }
 });
-$('#create-form').elements.namedItem('language').addEventListener('change', event => {
-  $('#create-form').elements.namedItem('voice').value = event.target.value === 'English' ? 'en-US-AriaNeural' : 'bn-BD-NabanitaNeural';
-});
+/* ---------- Languages: one list (web/languages.json) drives language and voice ---------- */
+const languages = {list: [], byCode: {}};
+const languageLabel = l => l.native === l.name ? l.name : `${l.name} · ${l.native}`;   // what the planner reads
+function fillVoices(code, keep) {
+  const lang = languages.byCode[code]; if (!lang) return;
+  const select = $('#voice');
+  select.innerHTML = lang.voices.map(([id, name, g]) => `<option value="${escape(id)}">${escape(name)} · ${g === 'F' ? 'female' : 'male'}</option>`).join('');
+  if (keep && lang.voices.some(([id]) => id === keep)) select.value = keep;
+}
+async function loadLanguages() {
+  try { languages.list = await (await fetch('/languages.json')).json(); } catch { return; }   // keep the built-in two
+  languages.byCode = Object.fromEntries(languages.list.map(l => [l.code, l]));
+  const select = $('#language');
+  select.innerHTML = languages.list.map(l => `<option value="${escape(languageLabel(l))}" data-code="${l.code}">${escape(l.native === l.name ? l.name : l.native + ' · ' + l.name)}</option>`).join('');
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('studio-language') || '{}'); } catch {}
+  const code = languages.byCode[saved.code] ? saved.code : 'bn-BD';
+  select.value = languageLabel(languages.byCode[code]);
+  fillVoices(code, saved.voice);
+}
+function rememberLanguage() {
+  const code = $('#language').selectedOptions[0]?.dataset.code;
+  try { localStorage.setItem('studio-language', JSON.stringify({code, voice: $('#voice').value})); } catch {}
+}
+$('#language').addEventListener('change', () => { fillVoices($('#language').selectedOptions[0].dataset.code); rememberLanguage(); });
+$('#voice').addEventListener('change', rememberLanguage);
 
 /* ---------- Project dialog ---------- */
 async function loadLog(job) {
@@ -421,7 +445,7 @@ $$('[data-cost]').forEach(el => el.onclick = () => report('/api/provider-costs/'
 $('#load-usage').onclick = () => report('/api/provider-usage');
 
 /* ---------- Start ---------- */
-changeMode(); costEstimate(); loadStoryAIs();
+changeMode(); costEstimate(); loadStoryAIs(); loadLanguages();
 const VIEWS = ['overview', 'create', 'library', 'providers'];
 const hashView = () => location.hash.replace(/^#\/?/, '');
 const initial = hashView();

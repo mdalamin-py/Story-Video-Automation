@@ -34,11 +34,13 @@ class SpeechRateLimited(RuntimeError):
     pass
 
 
-LETTERS_PER_SECOND = 15.0   # about the pace make_beats.py assumes; works for Bangla and English letters
+LETTERS_PER_SECOND = 15.0   # about the pace make_beats.py assumes, in letter-equivalents
 
 
 def estimated_seconds(text):
-    return sum(ch.isalpha() for ch in text) / LETTERS_PER_SECOND + 0.35 * sum(text.count(p) for p in ",.!?।")
+    from multilingual import speech_units
+    pauses = sum(text.count(p) for p in ",.!?।،؟。，、！？")
+    return speech_units(text) / LETTERS_PER_SECOND + 0.35 * pauses
 
 
 def routed_narration(scene, settings, folder, seconds, number):

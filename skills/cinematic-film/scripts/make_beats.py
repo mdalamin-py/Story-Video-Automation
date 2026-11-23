@@ -22,6 +22,22 @@ import re
 LPS = 14.5
 
 
+def speech_units(text):
+    """Letter-equivalents in any script: a Chinese character is a syllable (about three letters),
+    kana and Hangul about two, and Indic spacing vowel signs count like letters."""
+    import unicodedata
+    units = 0.0
+    for ch in text:
+        o = ord(ch)
+        if 0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF:
+            units += 3
+        elif 0x3040 <= o <= 0x30FF or 0xAC00 <= o <= 0xD7AF:
+            units += 2
+        elif ch.isalpha() or unicodedata.category(ch) == "Mc":
+            units += 1
+    return units
+
+
 def mmss(s):
     return f"{int(s // 60)}:{s % 60:04.1f}"
 
@@ -43,7 +59,7 @@ def main():
         if i in timing:
             start, dur = timing[i]["start"], timing[i]["duration"]
         else:
-            dur = sum(ch.isalpha() for ch in l["spoken"]) / LPS
+            dur = speech_units(l["spoken"]) / LPS
             start = cursor
             cursor += dur + l.get("gap_after", 0.45)
         typed = l.get("typed", "") or "--"

@@ -31,6 +31,7 @@ def timestamp(seconds):
 
 
 def render(clips, scenes, brief, folder, demo=False, voices=None):
+    from multilingual import wrap_unspaced
     width, height = VERTICAL_SIZES[brief.get("export_resolution", brief["resolution"])]
     source_width, source_height = VERTICAL_SIZES[brief["resolution"]]
     seconds = brief["seconds_per_scene"]
@@ -38,7 +39,7 @@ def render(clips, scenes, brief, folder, demo=False, voices=None):
     for index, scene in enumerate(scenes):
         if scene["caption"].strip():
             captions.append(f"{len(captions) + 1}\n{timestamp(index * seconds)} --> "
-                            f"{timestamp((index + 1) * seconds)}\n{scene['caption'].strip()}\n")
+                            f"{timestamp((index + 1) * seconds)}\n{wrap_unspaced(scene['caption'].strip())}\n")
     (folder / "captions.srt").write_text("\n".join(captions), encoding="utf-8")
     if demo:
         colors = ("0x16304a", "0x3a2548", "0x125044", "0x4a3927", "0x2b3552")
@@ -66,7 +67,9 @@ def render(clips, scenes, brief, folder, demo=False, voices=None):
         f"file cut-{index:02}.mp4\n" for index in range(len(clips))), encoding="ascii")
     args = ["-c", "copy"]
     if captions and brief["burn_captions"]:
-        args = ["-vf", "subtitles=captions.srt:force_style='FontName=Nirmala UI,FontSize=22,"
+        from multilingual import caption_font
+        font = caption_font((folder / "captions.srt").read_text(encoding="utf-8"))
+        args = ["-vf", f"subtitles=captions.srt:force_style='FontName={font},FontSize=22,"
                 "Outline=2,MarginV=26'", "-c:v", "libx264", "-crf", "18", "-preset", "fast", "-c:a", "copy"]
     run("-f", "concat", "-safe", "1", "-i", "clips.txt", *args, "-movflags", "+faststart",
         "preview.tmp.mp4", folder=folder)

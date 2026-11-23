@@ -29,8 +29,8 @@ Recorded lines: audio/lines/seg01.wav, seg02.wav ইত্যাদি, line ID 
 নিজের background score: audio/music.mp3; narration enabled রাখতে হবে।
 নিজের ব্যবহারের অধিকার আছে এমন asset/score দিন এবং credits-এ লিখুন।
 
-Output: runs/local/<project>/out/final-bangla.mp4
-Subtitle: out/captions.bn.srt
+Output: runs/local/<project>/out/final-video.mp4
+Subtitle: out/captions.srt
 Review files: beats.md, credits.md, out/probe এবং out/draft.mp4
 Validation: out/verification.json
 Progress: pipeline.json ও production.log

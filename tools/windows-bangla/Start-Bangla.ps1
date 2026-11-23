@@ -19,7 +19,7 @@ $Helper = Join-Path $PSScriptRoot 'bangla_tools.py'
 if ($Action -eq 'Check') {
     & $Python -X utf8 "$Repo\skills\cinematic-film\scripts\check_setup.py"
     if ($LASTEXITCODE -ne 0) { throw 'Setup check failed' }
-    & $Python -c 'import edge_tts; print("Bangla online voice helper available")'
+    & $Python -c 'import edge_tts; print("Online voice helper available (any Edge TTS language)")'
 } else {
     if (!$Project) { throw '-Project is required' }
     if ($Action -eq 'Voice') {
@@ -29,7 +29,7 @@ if ($Action -eq 'Check') {
         & $Python -X utf8 (Join-Path $PSScriptRoot 'render_serial.py') --project $Project --size $Size --out $Out --audio audio\narration.m4a
     } elseif ($Action -eq 'Captions') {
         if (!$Video) { $Video = Join-Path $Project 'out\draft.mp4' }
-        if (!$Out) { $Out = Join-Path $Project 'out\final-bangla.mp4' }
+        if (!$Out) { $Out = Join-Path $Project 'out\final-video.mp4' }
         & $Python -X utf8 $Helper captions --project $Project --video $Video --out $Out
     }
 }

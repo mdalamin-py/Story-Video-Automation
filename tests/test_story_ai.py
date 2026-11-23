@@ -109,3 +109,15 @@ def test_brief_validation_accepts_only_known_story_ais():
     validate({**brief, "story_ai": "claude"})
     with pytest.raises(ValueError, match="story_ai"):
         validate({**brief, "story_ai": "grok"})
+
+
+def test_dashboard_endpoint_reports_story_ais_without_keys(monkeypatch):
+    from fastapi.testclient import TestClient
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from backend.api import app
+    monkeypatch.setenv("STUDIO_ADMIN_TOKEN", "t" * 32); monkeypatch.setenv("GEMINI_API_KEY", "secret-gemini")
+    client = TestClient(app)
+    assert client.get("/api/story-ais").status_code == 401
+    reply = client.get("/api/story-ais", headers={"Authorization": "Bearer " + "t" * 32})
+    assert reply.status_code == 200 and "secret-gemini" not in reply.text
+    assert {row["id"]: row["connected"] for row in reply.json()} == {"gemini": True, "openai": False, "claude": False}

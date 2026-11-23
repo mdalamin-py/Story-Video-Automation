@@ -1,4 +1,6 @@
-"""Bangla narration and Unicode subtitles for cinematic-film (Windows)."""
+"""Narration (Edge TTS, any language) and Unicode subtitles for cinematic-film (Windows).
+
+The folder keeps its historical name; nothing here is specific to Bangla any more."""
 import argparse
 import asyncio
 import json
@@ -10,6 +12,8 @@ import sys
 import tempfile
 
 REPO = Path(os.environ.get('CINEMATIC_REPO', str(Path(__file__).resolve().parents[2])))
+sys.path.insert(0, str(REPO / 'src'))
+from multilingual import caption_font, wrap_unspaced
 WORK = Path(r'C:\Users\HP\Documents\Codex\2026-11-22\d-video-maker-cinematic-skill\work')
 if (WORK / 'win32').exists():
     os.environ['PATH'] = str(WORK / 'win32') + os.pathsep + os.environ['PATH']
@@ -25,9 +29,9 @@ def srt(project):
     timing = json.loads((project/'audio/timing.json').read_text(encoding='utf-8-sig'))
     rows = []
     for i, seg in enumerate(timing['segments'], 1):
-        text = seg.get('caption') or seg['vo']
+        text = wrap_unspaced(seg.get('caption') or seg['vo'])
         rows.append(f"{i}\n{stamp(seg['start'])} --> {stamp(seg['end'])}\n{text}\n")
-    out = project/'out/captions.bn.srt'
+    out = project/'out/captions.srt'
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text('\n'.join(rows), encoding='utf-8')
     return out
@@ -65,7 +69,7 @@ def main():
     v.add_argument('--project',required=True)
     v.add_argument('--voice',default='bn-BD-NabanitaNeural')
     v.add_argument('--rate',default='+0%')
-    c = sub.add_parser('captions',help='Write UTF-8 SRT and optionally burn Bangla captions')
+    c = sub.add_parser('captions',help='Write a UTF-8 SRT and optionally burn the captions in, in any script')
     c.add_argument('--project',required=True)
     c.add_argument('--video')
     c.add_argument('--out')
@@ -94,10 +98,14 @@ def main():
             'redbar': 'Outline=4,Shadow=0,BorderStyle=3,OutlineColour=&H00352C9E,BackColour=&H00352C9E,PrimaryColour=&H00FFFFFF',
         }
         # Relative temporary subtitle path avoids drive-letter escaping in FFmpeg filters.
-        with tempfile.TemporaryDirectory(prefix='bangla-') as temp:
+        # The font follows the captions' own script: Nirmala UI for Indic, Segoe UI for Arabic/Urdu,
+        # Microsoft YaHei for Chinese, Yu Gothic for Japanese, Malgun Gothic for Korean, and so on.
+        font = caption_font(captions.read_text(encoding='utf-8'))
+        print(f'Caption font: {font}')
+        with tempfile.TemporaryDirectory(prefix='captions-') as temp:
             shutil.copy2(captions,Path(temp)/'captions.srt')
             run(['ffmpeg','-y','-v','warning','-i',video,'-vf',
-                 "subtitles=filename=captions.srt:charenc=UTF-8:force_style='FontName=Nirmala UI,FontSize=22,MarginV=22," + styles[a.style] + "'",
+                 f"subtitles=filename=captions.srt:charenc=UTF-8:force_style='FontName={font},FontSize=22,MarginV=22," + styles[a.style] + "'",
                  '-c:v','libx264','-threads','2','-pix_fmt','yuv420p','-c:a','copy','-movflags','+faststart',out],cwd=temp)
         print(out)
 
