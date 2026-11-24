@@ -144,7 +144,7 @@ export function createDashboard({root=ROOT,apiUrl=process.env.STUDIO_API_URL,tok
    }
    const local=/^\/local\/jobs\/([a-zA-Z0-9_-]+)\/(video|log|subtitles)$/.exec(url.pathname);
    if(local){const folder=path.join(jobsRoot,local[1]);if(local[2]==='video')return await media(req,res,finalVideo(folder));
-    if(local[2]==='subtitles'){res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','Content-Disposition':'attachment; filename="captions.srt"'});return res.end(await readFile(subtitleFile(folder)));}
+    if(local[2]==='subtitles'){const data=await readFile(subtitleFile(folder));res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8','Content-Disposition':'attachment; filename="captions.srt"'});return res.end(data);}
     let text='';for(const file of ['run.log','production.log','dashboard.log','result.txt'])try{text+='\n'+await readFile(path.join(folder,file),'utf8');}catch{}
     return json(res,200,{log:text.slice(-60000)||'Starting the local video agent…'});
    }

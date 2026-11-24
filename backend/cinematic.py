@@ -45,6 +45,9 @@ def codex_failure(log):
     text=log[-800:].lower()      # only the end: earlier lines are Codex's own work, which may mention anything
     if any(k in text for k in ('not logged in','please log in','codex login','sign in','unauthorized','401 ')):
         return 'Codex is not signed in. Open the Codex app, sign in with your ChatGPT account, then press Retry.'
+    if 'model is not supported' in text or 'model metadata for' in text:
+        return ('Codex is set to a model your account cannot use. Set CODEX_MODEL in .env to one it can '
+                '(for example gpt-6-luna), or change "model" in your Codex settings, then press Retry.')
     if any(k in text for k in ('usage limit','rate limit','429','quota','too many requests')):
         return 'Codex has reached its usage limit for now. Wait a while (or check your ChatGPT plan), then press Retry.'
     if any(k in text for k in ('network error','connection refused','connection reset','error sending request','timed out','dns error')):
