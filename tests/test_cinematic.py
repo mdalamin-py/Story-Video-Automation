@@ -90,6 +90,14 @@ def test_portrait_previews_and_archive_metadata_keep_approval_valid(tmp_path):
     assert [name for name,_ in calls][0]=='check_setup.py'
 
 
+def test_photo_list_without_photos_key_is_repaired(tmp_path):
+    p=pipeline(tmp_path)
+    p.runner=lambda script,args: None
+    write(tmp_path/'photos.json',{'images':[],'source_note':'all drawn in code'})
+    p.run('prepare')
+    fixed=read(tmp_path/'photos.json')
+    assert fixed['photos']==[] and fixed['source_note']=='all drawn in code'
+
 def test_lint_warnings_reach_the_reviewer_and_the_planner(tmp_path):
     p=pipeline(tmp_path)
     def runner(script,args):

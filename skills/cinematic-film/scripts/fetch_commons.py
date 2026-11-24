@@ -100,7 +100,7 @@ def cmd_get(a):
     spec = json.loads((proj / "photos.json").read_text(encoding="utf-8-sig"))
     dst_dir = proj / "assets" / "photos"; dst_dir.mkdir(parents=True, exist_ok=True)
     refused = 0
-    for p in spec["photos"]:
+    for p in spec.get("photos", []):
         have = bool(p.get("file")) and (dst_dir / p["file"]).exists()
         if have and not a.force and (p.get("license") or not p.get("commons")):
             continue                     # downloaded and credited (or a local/url file the user credits by hand)
@@ -142,7 +142,7 @@ def cmd_credits(a):
     proj = pathlib.Path(a.project)
     spec = json.loads((proj / "photos.json").read_text(encoding="utf-8-sig"))
     rows, unclear = [], []
-    for p in spec["photos"]:
+    for p in spec.get("photos", []):
         lic = p.get("license") or "NOT RECORDED"
         if not p.get("license_ok", bool(FREE.search(lic))):
             unclear.append(p["id"])

@@ -71,7 +71,7 @@ def prep_photos(proj, look):
     look = look or spec.get("grade", "bw")
     out = proj / "assets" / "prep" / "photos"; out.mkdir(parents=True, exist_ok=True)
     meta, missing = {}, []
-    for p in spec["photos"]:
+    for p in spec.get("photos", []):
         src = proj / "assets" / "photos" / p["file"] if p.get("file") else None
         if not src or not src.exists():
             missing.append(f"{p['id']} ({p.get('file') or 'no file yet'})"); continue

@@ -276,8 +276,11 @@ Finish by describing the plan briefly. Never print credentials.'''
         self.validate_plan()
         for sub in ('audio','assets/photos','assets/prep','out','fonts'):
             (self.folder/sub).mkdir(parents=True,exist_ok=True)
-        if not (self.folder/'photos.json').exists():
-            write(self.folder/'photos.json',{'grade':'natural','photos':[],'recreations':[]})
+        photos=read(self.folder/'photos.json',{}) if (self.folder/'photos.json').exists() else {}
+        if not isinstance(photos,dict) or not isinstance(photos.get('photos'),list):
+            # Codex sometimes leaves the list out (or calls it something else); the asset tools need "photos".
+            photos=photos if isinstance(photos,dict) else {}
+            write(self.folder/'photos.json',{'grade':'natural','recreations':[],**photos,'photos':[]})
         self.tool('beats','make_beats.py')
         self.lint()
         self.state['plan_hash']=self.fingerprint()
